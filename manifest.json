@@ -1,7 +1,7 @@
 {
   "name": "⏱️ 업무 트래커",
   "short_name": "트래커",
-  "start_url": "/하루트래킹1.2.html",
+  "start_url": "/index.html",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#4f46e5",
@@ -18,4 +18,5 @@
       "type": "image/png"
     }
   ]
+
 }
