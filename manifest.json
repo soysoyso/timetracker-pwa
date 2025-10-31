@@ -8,15 +8,16 @@
   "description": "업무 시간과 휴식 시간을 추적하는 앱입니다.",
   "icons": [
     {
-      "src": "/icons/icon-192x192.png",
+      "src": "/icons/192192.jpg",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/jpeg"
     },
     {
-      "src": "/icons/icon-512x512.png",
+      "src": "/icons/512512.jpg",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/jpeg"
     }
   ]
 
 }
+
