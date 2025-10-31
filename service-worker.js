@@ -1,15 +1,15 @@
 const CACHE_NAME = 'tracking-app-cache-v1';
 // 앱이 필요로 하는 파일들을 보물 상자에 넣을 목록입니다.
 const urlsToCache = [
-  '/하루트래킹1.2.html',
+  '/index.html',
   '/manifest.json',
   // 여러분이 사용한 리액트, 테일윈드 같은 도구들도 같이 저장해요.
   'https://unpkg.com/react@18/umd/react.production.min.js',
   'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js',
   'https://unpkg.com/@babel/standalone/babel.min.js',
   'https://cdn.tailwindcss.com',
-  '/icons/icon-192x192.png',
-  '/icons/icon-512x512.png'
+  '/icons/192192.jpg',
+  '/icons/512512.jpg'
 ];
 
 // 이 코드가 보물 상자를 열고 파일을 넣는 역할을 합니다. (복사해서 그대로 쓰세요!)
@@ -50,4 +50,5 @@ self.addEventListener('activate', (event) => {
       );
     })
   );
+
 });
