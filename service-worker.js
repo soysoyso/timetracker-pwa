@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tracking-app-cache-v1';
+const CACHE_NAME = 'tracking-app-cache-v2';
 // 앱이 필요로 하는 파일들을 보물 상자에 넣을 목록입니다.
 const urlsToCache = [
   '/index.html',
@@ -52,3 +52,4 @@ self.addEventListener('activate', (event) => {
   );
 
 });
+
