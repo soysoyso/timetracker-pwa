@@ -1,1421 +1,211 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>⏱️ 업무 트래커</title>
+
+  <!-- React + Babel + Tailwind -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Supabase 클라이언트 -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- ✅ Supabase v2 (ESM 방식으로 로드) -->
+  <script type="module">
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+    const SUPABASE_URL = "https://ypdvepbxhedaywdlavap.supabase.co";
+    const SUPABASE_ANON_KEY =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwZHZlcGJ4aGVkYXl3ZGxhdmFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNTAyMTYsImV4cCI6MjA3NzkyNjIxNn0.xLrxGb9xsNAzDaozd3m9UjegRkw1Tu6hmTuSj326tWo";
+
+    // ✅ 전역 등록: React 코드에서 접근 가능
+    window.supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    console.log("✅ Supabase 연결 준비 완료");
+  </script>
+
   <style>
-    @keyframes bounce {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-10px); }
-    }
-    .animate-bounce {
-      animation: bounce 1s infinite;
-    }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-    .animate-pulse {
-      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-    }
+    @keyframes bounce {0%,100%{transform:translateY(0);}50%{transform:translateY(-10px);}}
+    .animate-bounce{animation:bounce 1s infinite;}
+    @keyframes pulse {0%,100%{opacity:1;}50%{opacity:0.5;}}
+    .animate-pulse{animation:pulse 2s cubic-bezier(0.4,0,0.6,1) infinite;}
   </style>
 </head>
-<body>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100">
   <div id="root"></div>
 
+  <!-- ✅ React 앱 전체 -->
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
 
-    // ============ Supabase 설정 ============
-    // TODO: Supabase 프로젝트 생성 후 아래 값을 교체하세요
-   const SUPABASE_URL = 'https://ypdvepbxhedaywdlavap.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwZHZlcGJ4aGVkYXl3ZGxhdmFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNTAyMTYsImV4cCI6MjA3NzkyNjIxNn0.xLrxGb9xsNAzDaozd3m9UjegRkw1Tu6hmTuSj326tWo';
-    
-    // Supabase 클라이언트 초기화
-    let supabase = null;
-    if (SUPABASE_URL !== 'YOUR_SUPABASE_URL' && SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY') {
-      supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    }
-    // =========================================
+    const supabase = window.supabaseClient;
 
-    // Lucide Icons as inline SVG components
-    const Play = ({ size = 24 }) => (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <polygon points="5 3 19 12 5 21 5 3"></polygon>
-      </svg>
-    );
-
-    const Square = ({ size = 24 }) => (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-      </svg>
-    );
-
-    const Clock = ({ size = 24 }) => (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="10"></circle>
-        <polyline points="12 6 12 12 16 14"></polyline>
-      </svg>
-    );
-
-    const BarChart3 = ({ size = 24 }) => (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 3v18h18"></path>
-        <path d="M18 17V9"></path>
-        <path d="M13 17V5"></path>
-        <path d="M8 17v-3"></path>
-      </svg>
-    );
-
-    const Target = ({ size = 24 }) => (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="10"></circle>
-        <circle cx="12" cy="12" r="6"></circle>
-        <circle cx="12" cy="12" r="2"></circle>
-      </svg>
-    );
-
-    const TrendingUp = ({ size = 24 }) => (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
-        <polyline points="17 6 23 6 23 12"></polyline>
-      </svg>
-    );
-
-    const Calendar = ({ size = 24 }) => (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-        <line x1="16" y1="2" x2="16" y2="6"></line>
-        <line x1="8" y1="2" x2="8" y2="6"></line>
-        <line x1="3" y1="10" x2="21" y2="10"></line>
-      </svg>
-    );
-
-    const WorkTracker = () => {
-      // ============ 새로 추가된 사용자 이름 관련 State ============
-      const [userName, setUserName] = useState('');
-      const [showUserNameInput, setShowUserNameInput] = useState(false);
-      const [inputUserName, setInputUserName] = useState('');
-      const [isAdmin, setIsAdmin] = useState(false);
-      
-      const [currentWork, setCurrentWork] = useState(null);
-      const [lastWorkEnd, setLastWorkEnd] = useState(null);
+    const App = () => {
+      const [userName, setUserName] = useState(localStorage.getItem("userName") || "");
+      const [goalHours, setGoalHours] = useState(6);
       const [workSessions, setWorkSessions] = useState([]);
       const [dayStarted, setDayStarted] = useState(false);
-      const [dayStartTime, setDayStartTime] = useState(null);
-      const [goalHours, setGoalHours] = useState(6);
-      const [showGoalInput, setShowGoalInput] = useState(false);
-      const [view, setView] = useState('tracker');
-      const [statsView, setStatsView] = useState('daily');
-      const [showAlert, setShowAlert] = useState(false);
-      const [alertMessage, setAlertMessage] = useState('');
-      const [workHistory, setWorkHistory] = useState([]);
-      const [currentTime, setCurrentTime] = useState(new Date());
-      const [skipFocusInput, setSkipFocusInput] = useState(false);
-      const [showSettings, setShowSettings] = useState(false);
-      const [settings, setSettings] = useState({
-        workAlertMinutes: 90,
-        breakAlertMinutes: 30
-      });
-      const [alertDismissed, setAlertDismissed] = useState({
-        work: false,
-        break: false
-      });
-      
-      // ============ 카테고리에 '직접입력' 추가 ============
-      const categories = ['기획', '회의', '피그마작업', '직접입력'];
-      const [selectedCategory, setSelectedCategory] = useState('');
-      const [workDescription, setWorkDescription] = useState('');
-      const [showStartForm, setShowStartForm] = useState(false);
-      const [customCategory, setCustomCategory] = useState('');
+      const [currentWork, setCurrentWork] = useState(null);
+      const [status, setStatus] = useState("");
+      const [syncing, setSyncing] = useState(false);
 
-      // ============ Supabase 관련 State ============
-      const [isSyncing, setIsSyncing] = useState(false);
-      const [syncStatus, setSyncStatus] = useState(''); // 동기화 상태 메시지
-
-      // ============ Supabase 함수들 ============
-      
-      // 서버에 데이터 저장
-      const saveDayToSupabase = async (dayData) => {
-        if (!supabase) {
-          console.log('Supabase가 설정되지 않았습니다. localStorage만 사용합니다.');
-          return { success: false, error: 'Supabase not configured' };
-        }
-
-        try {
-          const { data, error } = await supabase
-            .from('work_history')
-            .insert([{
-              user_name: dayData.userName,
-              date: dayData.date,
-              sessions: dayData.sessions,
-              goal_hours: dayData.goalHours,
-              satisfaction: dayData.satisfaction,
-              note: dayData.note,
-              start_time: dayData.startTime,
-              end_time: dayData.endTime
-            }]);
-
-          if (error) throw error;
-          
-          console.log('✅ 서버 저장 성공:', dayData.date);
-          return { success: true, data };
-        } catch (error) {
-          console.error('❌ 서버 저장 실패:', error);
-          return { success: false, error };
-        }
+      const startDay = () => setDayStarted(true);
+      const startWork = (cat = "업무") => {
+        setCurrentWork({ cat, start: Date.now() });
       };
-
-      // 서버에서 데이터 동기화
-      const syncFromSupabase = async () => {
-        if (!supabase || !userName) return;
-
-        setIsSyncing(true);
-        setSyncStatus('서버와 동기화 중...');
-
-        try {
-          let query = supabase
-            .from('work_history')
-            .select('*')
-            .order('created_at', { ascending: true });
-
-          // 일반 사용자는 자기 데이터만
-          if (!isAdmin) {
-            query = query.eq('user_name', userName);
-          }
-          // 관리자는 모든 데이터 조회
-
-          const { data, error } = await query;
-
-          if (error) throw error;
-
-          // 서버 데이터를 앱 형식으로 변환
-          const serverHistory = data.map(row => ({
-            userName: row.user_name,
-            date: row.date,
-            sessions: row.sessions,
-            goalHours: row.goal_hours,
-            satisfaction: row.satisfaction,
-            note: row.note,
-            startTime: row.start_time,
-            endTime: row.end_time
-          }));
-
-          // localStorage와 병합 (서버 우선)
-          const localHistory = JSON.parse(localStorage.getItem('workTrackerHistory') || '[]');
-          
-          // 중복 제거 (같은 날짜+사용자)
-          const mergedHistory = [...serverHistory];
-          localHistory.forEach(local => {
-            const exists = serverHistory.some(
-              server => server.date === local.date && server.userName === local.userName
-            );
-            if (!exists) {
-              mergedHistory.push(local);
-            }
-          });
-
-          setWorkHistory(mergedHistory);
-          setSyncStatus('✅ 동기화 완료');
-          setTimeout(() => setSyncStatus(''), 3000);
-
-          console.log(`✅ 서버 동기화 완료: ${data.length}개 레코드`);
-        } catch (error) {
-          console.error('❌ 동기화 실패:', error);
-          setSyncStatus('❌ 동기화 실패');
-          setTimeout(() => setSyncStatus(''), 3000);
-        } finally {
-          setIsSyncing(false);
-        }
-      };
-
-      // ============ 사용자 이름 로드 시 동기화 ============
-      useEffect(() => {
-        if (userName && supabase) {
-          syncFromSupabase();
-        }
-      }, [userName, isAdmin]);
-
-      // ============ 사용자 이름 로드 및 체크 ============
-      useEffect(() => {
-        const savedUserName = localStorage.getItem('workTrackerUserName');
-        if (savedUserName) {
-          setUserName(savedUserName);
-          setIsAdmin(savedUserName.toLowerCase() === 'admin');
-        } else {
-          setShowUserNameInput(true);
-        }
-      }, []);
-
-      useEffect(() => {
-        const savedHistory = localStorage.getItem('workTrackerHistory');
-        if (savedHistory) {
-          try {
-            const parsed = JSON.parse(savedHistory);
-            setWorkHistory(parsed);
-          } catch (e) {
-            console.error('Failed to load history:', e);
-          }
-        }
-        
-        const savedSettings = localStorage.getItem('workTrackerSettings');
-        if (savedSettings) {
-          try {
-            const parsed = JSON.parse(savedSettings);
-            setSettings(parsed);
-          } catch (e) {
-            console.error('Failed to load settings:', e);
-          }
-        }
-      }, []);
-
-      useEffect(() => {
-        if (workHistory.length > 0) {
-          localStorage.setItem('workTrackerHistory', JSON.stringify(workHistory));
-        }
-      }, [workHistory]);
-
-      useEffect(() => {
-        const timer = setInterval(() => {
-          setCurrentTime(new Date());
-        }, 1000);
-        return () => clearInterval(timer);
-      }, []);
-
-      // ============ 사용자 이름 저장 함수 ============
-      const saveUserName = () => {
-        if (!inputUserName.trim()) {
-          alert('사용자 이름을 입력해주세요');
-          return;
-        }
-        localStorage.setItem('workTrackerUserName', inputUserName);
-        setUserName(inputUserName);
-        setIsAdmin(inputUserName.toLowerCase() === 'admin');
-        setShowUserNameInput(false);
-      };
-
-      const formatDate = (date) => {
-        const year = date.getFullYear();
-        const month = date.getMonth() + 1;
-        const day = date.getDate();
-        const days = ['일', '월', '화', '수', '목', '금', '토'];
-        const dayOfWeek = days[date.getDay()];
-        return { year, month, day, dayOfWeek };
-      };
-
-      const formatCurrentTime = (date) => {
-        const hours = String(date.getHours()).padStart(2, '0');
-        const minutes = String(date.getMinutes()).padStart(2, '0');
-        const seconds = String(date.getSeconds()).padStart(2, '0');
-        return `${hours}:${minutes}:${seconds}`;
-      };
-
-      const dateInfo = formatDate(currentTime);
-
-      useEffect(() => {
-        const interval = setInterval(() => {
-          const now = Date.now();
-          
-          if (lastWorkEnd && !currentWork && !alertDismissed.break) {
-            const breakMinutes = (now - lastWorkEnd) / (1000 * 60);
-            if (breakMinutes > settings.breakAlertMinutes) {
-              setAlertMessage('일해야합니다일일일이일 💪');
-              setShowAlert(true);
-            }
-          }
-          
-          if (currentWork && !alertDismissed.work) {
-            const workMinutes = (now - currentWork.startTime) / (1000 * 60);
-            if (workMinutes > settings.workAlertMinutes) {
-              setAlertMessage('휴식과 운동이 필요합니다 🧘 스트레칭');
-              setShowAlert(true);
-            }
-          }
-        }, 30000);
-
-        return () => clearInterval(interval);
-      }, [currentWork, lastWorkEnd, settings, alertDismissed]);
-
-      const formatTime = (ms) => {
-        const hours = Math.floor(ms / (1000 * 60 * 60));
-        const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
-        return `${hours}시간 ${minutes}분`;
-      };
-
-      const formatHM = (ms) => {
-        const hours = Math.floor(ms / (1000 * 60 * 60));
-        const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
-        return { hours, minutes };
-      };
-
-      const startDay = () => {
-        setShowGoalInput(true);
-      };
-
-      const confirmGoal = () => {
-        const startTime = Date.now();
-        const date = new Date(startTime);
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        const hours = String(date.getHours()).padStart(2, '0');
-        const minutes = String(date.getMinutes()).padStart(2, '0');
-        const timeStr = `${month}.${day} ${hours}:${minutes}`;
-        
-        setDayStarted(true);
-        setDayStartTime(startTime);
-        setShowGoalInput(false);
-        
-        const startSession = {
-          category: '시작',
-          description: `하루 시작 - ${timeStr}`,
-          startTime: startTime,
-          endTime: startTime,
-          duration: 0,
-          focusLevel: '-'
-        };
-        setWorkSessions([startSession]);
-      };
-
-      const openStartForm = () => {
-        setShowStartForm(true);
-        setSelectedCategory('');
-        setWorkDescription('');
-        setCustomCategory('');
-      };
-
-      const startWork = () => {
-        const finalCategory = selectedCategory === '직접입력' ? customCategory : selectedCategory;
-        
-        if (!finalCategory || !workDescription.trim()) {
-          alert('카테고리와 작업 내용을 입력해주세요');
-          return;
-        }
-        
-        if (selectedCategory === '직접입력' && !customCategory.trim()) {
-          alert('카테고리를 직접 입력해주세요');
-          return;
-        }
-        
-        setCurrentWork({
-          category: finalCategory,
-          description: workDescription,
-          startTime: Date.now(),
-          focusLevel: null
-        });
-        setShowStartForm(false);
-        setShowAlert(false);
-        setAlertDismissed({ ...alertDismissed, work: false });
-      };
-
       const stopWork = () => {
         if (!currentWork) return;
-        
-        let focusLevel;
-        if (skipFocusInput) {
-          focusLevel = '2';
-        } else {
-          focusLevel = prompt('집중도를 평가해주세요\n상: 3, 중: 2, 하: 1', '2');
-        }
-        
-        const focusMap = { '1': '하', '2': '중', '3': '상' };
-        
-        const session = {
-          ...currentWork,
-          endTime: Date.now(),
-          focusLevel: focusMap[focusLevel] || '중',
-          duration: Date.now() - currentWork.startTime
-        };
-        
-        setWorkSessions([...workSessions, session]);
-        setLastWorkEnd(Date.now());
+        const s = { ...currentWork, end: Date.now(), duration: Date.now() - currentWork.start };
+        setWorkSessions([...workSessions, s]);
         setCurrentWork(null);
-        setShowAlert(false);
-        setAlertDismissed({ ...alertDismissed, break: false });
       };
-
       const endDay = async () => {
-        const satisfaction = prompt('오늘 하루를 평가해주세요 (1-5점)', '3');
-        const note = prompt('오늘 하루 한줄 회고를 작성해주세요', '');
-        
-        const endTime = Date.now();
-        const date = new Date(endTime);
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        const hours = String(date.getHours()).padStart(2, '0');
-        const minutes = String(date.getMinutes()).padStart(2, '0');
-        const timeStr = `${month}.${day} ${hours}:${minutes}`;
-        
-        const endSession = {
-          category: '마감',
-          description: `하루 마감 - ${timeStr}`,
-          startTime: endTime,
-          endTime: endTime,
-          duration: 0,
-          focusLevel: '-'
+        const data = {
+          user_name: userName || "guest",
+          date: new Date().toLocaleDateString("ko-KR"),
+          sessions: workSessions,
+          goal_hours: goalHours,
+          start_time: workSessions[0]?.start || null,
+          end_time: Date.now(),
         };
-        
-        const finalSessions = [...workSessions, endSession];
-        
-        const dayData = {
-          userName: userName,
-          date: new Date().toLocaleDateString('ko-KR'),
-          sessions: finalSessions,
-          goalHours,
-          satisfaction: satisfaction || '3',
-          note: note || '',
-          startTime: dayStartTime,
-          endTime: endTime
-        };
-        
-        // localStorage에 저장
-        const newHistory = [...workHistory, dayData];
-        setWorkHistory(newHistory);
-        
-        // Supabase에 저장 (비동기)
-        if (supabase) {
-          setSyncStatus('서버에 저장 중...');
-          const result = await saveDayToSupabase(dayData);
-          if (result.success) {
-            setSyncStatus('✅ 서버 저장 완료');
-          } else {
-            setSyncStatus('⚠️ 서버 저장 실패 (로컬에는 저장됨)');
-          }
-          setTimeout(() => setSyncStatus(''), 3000);
-        }
-        
+        localStorage.setItem("workHistory", JSON.stringify([...getHistory(), data]));
+        await saveToSupabase(data);
         setDayStarted(false);
-        setCurrentWork(null);
         setWorkSessions([]);
-        setLastWorkEnd(null);
-        setView('stats');
       };
 
-      const exportData = () => {
-        const dataStr = JSON.stringify(workHistory, null, 2);
-        const blob = new Blob([dataStr], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `work-tracker-backup-${new Date().toISOString().split('T')[0]}.json`;
-        link.click();
-        URL.revokeObjectURL(url);
-      };
+      const getHistory = () =>
+        JSON.parse(localStorage.getItem("workHistory") || "[]");
 
-      const clearData = () => {
-        if (confirm('정말로 모든 데이터를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
-          localStorage.removeItem('workTrackerHistory');
-          setWorkHistory([]);
-          alert('모든 데이터가 삭제되었습니다.');
+      const saveToSupabase = async (dayData) => {
+        if (!supabase) return;
+        setSyncing(true);
+        setStatus("☁️ 서버 저장 중...");
+        try {
+          const { error } = await supabase.from("work_history").insert([dayData]);
+          if (error) throw error;
+          setStatus("✅ 서버 저장 완료!");
+        } catch (err) {
+          console.error(err);
+          setStatus("⚠️ 서버 저장 실패 (로컬 저장됨)");
+        } finally {
+          setSyncing(false);
+          setTimeout(() => setStatus(""), 4000);
         }
       };
 
-      const saveSettings = () => {
-        localStorage.setItem('workTrackerSettings', JSON.stringify(settings));
-        setShowSettings(false);
-        alert('설정이 저장되었습니다! ✅');
-      };
-
-      const getFilteredHistory = () => {
-        if (isAdmin) {
-          return workHistory;
-        }
-        // userName이 없는 기존 데이터는 현재 사용자 것으로 간주
-        return workHistory.filter(day => 
-          !day.userName || day.userName === userName
-        );
-      };
-
-      const calculateStats = () => {
-        const workOnlySessions = workSessions.filter(s => s.category !== '시작' && s.category !== '마감');
-        
-        const totalWork = workOnlySessions.reduce((acc, s) => acc + s.duration, 0);
-        const totalBreak = workOnlySessions.reduce((acc, s, i) => {
-          if (i === 0) return acc;
-          return acc + (s.startTime - workOnlySessions[i-1].endTime);
-        }, 0);
-        
-        const byCategory = {};
-        const uniqueCategories = [...new Set(workOnlySessions.map(s => s.category))];
-        uniqueCategories.forEach(cat => {
-          byCategory[cat] = workOnlySessions
-            .filter(s => s.category === cat)
-            .reduce((acc, s) => acc + s.duration, 0);
-        });
-
-        return { totalWork, totalBreak, byCategory };
-      };
-
-      const stats = calculateStats();
-
-      const dismissAlert = (action) => {
-        setShowAlert(false);
-        
-        if (action === 'rest') {
-          stopWork();
-          setAlertDismissed({ ...alertDismissed, work: true });
-        } else if (action === 'work') {
-          openStartForm();
-          setAlertDismissed({ ...alertDismissed, break: true });
-        } else if (action === 'continue') {
-          if (currentWork) {
-            setAlertDismissed({ ...alertDismissed, work: true });
-          } else {
-            setAlertDismissed({ ...alertDismissed, break: true });
-          }
-        }
-      };
-
-      const getWeeklyStats = () => {
-        const filteredHistory = getFilteredHistory();
-        const lastSevenDays = filteredHistory.slice(-7);
-        const totalWork = lastSevenDays.reduce((acc, day) => {
-          const workOnlySessions = day.sessions.filter(s => s.category !== '시작' && s.category !== '마감');
-          return acc + workOnlySessions.reduce((sum, s) => sum + s.duration, 0);
-        }, 0);
-        return { days: lastSevenDays.length, totalWork };
-      };
-
-      const getMonthlyStats = () => {
-        const filteredHistory = getFilteredHistory();
-        const lastThirtyDays = filteredHistory.slice(-30);
-        const totalWork = lastThirtyDays.reduce((acc, day) => {
-          const workOnlySessions = day.sessions.filter(s => s.category !== '시작' && s.category !== '마감');
-          return acc + workOnlySessions.reduce((sum, s) => sum + s.duration, 0);
-        }, 0);
-        return { days: lastThirtyDays.length, totalWork };
-      };
+      const totalMs = workSessions.reduce((a, s) => a + (s.duration || 0), 0);
+      const h = Math.floor(totalMs / 3600000);
+      const m = Math.floor((totalMs % 3600000) / 60000);
 
       return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 pb-20">
-          {showUserNameInput && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-6">
-              <div className="bg-white rounded-3xl p-8 max-w-sm w-full">
-                <div className="text-center mb-6">
-                  <div className="text-6xl mb-4">👤</div>
-                  <h2 className="text-2xl font-bold text-gray-800 mb-2">환영합니다!</h2>
-                  <p className="text-gray-600">업무 트래커를 시작하기 전에<br/>사용자 이름을 입력해주세요</p>
-                </div>
-                
-                <div className="mb-6">
-                  <label className="block text-gray-700 mb-3 font-medium">사용자 이름</label>
-                  <input
-                    type="text"
-                    value={inputUserName}
-                    onChange={(e) => setInputUserName(e.target.value)}
-                    placeholder="이름을 입력하세요"
-                    className="w-full p-4 border-2 border-gray-300 rounded-xl text-center text-lg"
-                    onKeyPress={(e) => e.key === 'Enter' && saveUserName()}
-                  />
-                  <p className="text-xs text-gray-500 mt-2 text-center">
-                    입력한 이름으로 데이터가 구분됩니다
-                  </p>
-                </div>
-                
-                <button
-                  onClick={saveUserName}
-                  className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700"
-                >
-                  시작하기 🚀
-                </button>
-              </div>
-            </div>
-          )}
+        <div className="max-w-md mx-auto py-10 px-6">
+          <h1 className="text-3xl font-bold text-gray-800 mb-4 text-center">⏱️ 업무 트래커</h1>
 
-          {showAlert && (
-            <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-6">
-              <div className="bg-white rounded-3xl p-8 text-center max-w-sm w-full animate-bounce">
-                <div className="text-6xl mb-4">⚠️</div>
-                <h2 className="text-2xl font-bold text-gray-800 mb-6 leading-tight">
-                  {alertMessage}
-                </h2>
-                <div className="space-y-3">
-                  {alertMessage.includes('휴식') && (
-                    <>
-                      <button
-                        onClick={() => dismissAlert('rest')}
-                        className="w-full bg-green-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-green-700"
-                      >
-                        휴식하기 ☕
-                      </button>
-                      <button
-                        onClick={() => dismissAlert('continue')}
-                        className="w-full bg-gray-500 text-white py-4 rounded-xl font-bold text-lg hover:bg-gray-600"
-                      >
-                        계속 일하기 💪
-                      </button>
-                    </>
-                  )}
-                  
-                  {alertMessage.includes('일해야') && (
-                    <>
-                      <button
-                        onClick={() => dismissAlert('work')}
-                        className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700"
-                      >
-                        일하기 💼
-                      </button>
-                      <button
-                        onClick={() => dismissAlert('continue')}
-                        className="w-full bg-gray-500 text-white py-4 rounded-xl font-bold text-lg hover:bg-gray-600"
-                      >
-                        계속 휴식 😴
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {showGoalInput && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex items-center justify-center p-6">
-              <div className="bg-white rounded-3xl p-8 max-w-sm w-full">
-                <div className="text-center mb-6 pb-6 border-b border-gray-200">
-                  <div className="text-xl font-bold text-gray-800 mb-2">
-                    {dateInfo.year}년 {dateInfo.month}월 {dateInfo.day}일 ({dateInfo.dayOfWeek})
-                  </div>
-                  <div className="text-2xl font-mono font-bold text-indigo-600">
-                    {formatCurrentTime(currentTime)}
-                  </div>
-                </div>
-                
-                <h2 className="text-2xl font-bold text-gray-800 mb-6">오늘의 목표 설정</h2>
-                <div className="mb-6">
-                  <label className="block text-gray-700 mb-3 font-medium">목표 작업시간</label>
-                  <input
-                    type="number"
-                    value={goalHours}
-                    onChange={(e) => setGoalHours(Number(e.target.value))}
-                    className="w-full p-4 border-2 border-gray-300 rounded-xl text-2xl text-center font-bold"
-                    min="1"
-                    max="12"
-                  />
-                  <p className="text-gray-500 text-sm mt-2 text-center">시간</p>
-                </div>
-                <button
-                  onClick={confirmGoal}
-                  className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700"
-                >
-                  하루 시작! 🚀
-                </button>
-              </div>
-            </div>
-          )}
-
-          {showStartForm && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex items-center justify-center p-6">
-              <div className="bg-white rounded-3xl p-8 max-w-sm w-full">
-                <h2 className="text-2xl font-bold text-gray-800 mb-6">작업 시작</h2>
-                
-                <div className="mb-6">
-                  <label className="block text-gray-700 mb-3 font-medium">카테고리</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {categories.map(cat => (
-                      <button
-                        key={cat}
-                        onClick={() => setSelectedCategory(cat)}
-                        className={`py-3 px-2 rounded-xl font-bold text-sm ${
-                          selectedCategory === cat
-                            ? 'bg-indigo-600 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
-                      >
-                        {cat}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {selectedCategory === '직접입력' && (
-                  <div className="mb-6">
-                    <label className="block text-gray-700 mb-3 font-medium">카테고리 직접 입력</label>
-                    <input
-                      type="text"
-                      value={customCategory}
-                      onChange={(e) => setCustomCategory(e.target.value)}
-                      placeholder="카테고리 이름을 입력하세요"
-                      className="w-full p-4 border-2 border-indigo-300 rounded-xl bg-indigo-50"
-                    />
-                  </div>
-                )}
-
-                <div className="mb-6">
-                  <label className="block text-gray-700 mb-3 font-medium">작업 내용</label>
-                  <input
-                    type="text"
-                    value={workDescription}
-                    onChange={(e) => setWorkDescription(e.target.value)}
-                    placeholder="무엇을 하시나요?"
-                    className="w-full p-4 border-2 border-gray-300 rounded-xl"
-                  />
-                </div>
-
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => setShowStartForm(false)}
-                    className="flex-1 bg-gray-200 text-gray-700 py-4 rounded-xl font-bold hover:bg-gray-300"
-                  >
-                    취소
-                  </button>
-                  <button
-                    onClick={startWork}
-                    className="flex-1 bg-indigo-600 text-white py-4 rounded-xl font-bold hover:bg-indigo-700"
-                  >
-                    시작!
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {showSettings && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex items-center justify-center p-6">
-              <div className="bg-white rounded-3xl p-8 max-w-sm w-full">
-                <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                  <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  알림 설정
-                </h2>
-                
-                <div className="space-y-6">
-                  <div>
-                    <label className="block text-gray-700 mb-3 font-medium">
-                      업무 알림 ⏰
-                      <span className="block text-sm text-gray-500 font-normal mt-1">
-                        이 시간 이상 작업하면 휴식 알림
-                      </span>
-                    </label>
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="number"
-                        value={settings.workAlertMinutes}
-                        onChange={(e) => setSettings({...settings, workAlertMinutes: Number(e.target.value)})}
-                        className="flex-1 p-4 border-2 border-gray-300 rounded-xl text-xl text-center font-bold"
-                        min="1"
-                        max="180"
-                      />
-                      <span className="text-gray-700 font-medium">분</span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-gray-700 mb-3 font-medium">
-                      휴식 알림 ☕
-                      <span className="block text-sm text-gray-500 font-normal mt-1">
-                        이 시간 이상 쉬면 업무 시작 알림
-                      </span>
-                    </label>
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="number"
-                        value={settings.breakAlertMinutes}
-                        onChange={(e) => setSettings({...settings, breakAlertMinutes: Number(e.target.value)})}
-                        className="flex-1 p-4 border-2 border-gray-300 rounded-xl text-xl text-center font-bold"
-                        min="1"
-                        max="120"
-                      />
-                      <span className="text-gray-700 font-medium">분</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex gap-3 mt-8">
-                  <button
-                    onClick={() => setShowSettings(false)}
-                    className="flex-1 bg-gray-200 text-gray-700 py-4 rounded-xl font-bold hover:bg-gray-300"
-                  >
-                    취소
-                  </button>
-                  <button
-                    onClick={saveSettings}
-                    className="flex-1 bg-indigo-600 text-white py-4 rounded-xl font-bold hover:bg-indigo-700"
-                  >
-                    저장
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="bg-white shadow-md">
-            <div className="max-w-md mx-auto px-6 py-6">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h1 className="text-3xl font-bold text-gray-800">⏱️ 업무 트래커</h1>
-                  <p className="text-gray-600 mt-1">
-                    나를 알아가는 시간 
-                    {userName && (
-                      <span className="ml-2 text-indigo-600 font-semibold">
-                        ({userName}{isAdmin && ' 👑'})
-                      </span>
-                    )}
-                  </p>
-                  {/* 동기화 상태 표시 */}
-                  {syncStatus && (
-                    <div className="mt-2 text-sm text-indigo-600 font-medium">
-                      {syncStatus}
-                    </div>
-                  )}
-                </div>
-                <button
-                  onClick={() => setShowSettings(true)}
-                  className="p-3 hover:bg-gray-100 rounded-xl transition-colors"
-                  title="설정"
-                >
-                  <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                </button>
-              </div>
-              
-              {dayStarted && (
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <div className="flex justify-between items-center mb-3">
-                    <div className="flex items-center gap-3">
-                      <div className="text-lg font-bold text-gray-800">
-                        {dateInfo.year}년 {dateInfo.month}월 {dateInfo.day}일
-                      </div>
-                      <div className="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full font-bold text-sm">
-                        {dateInfo.dayOfWeek}요일
-                      </div>
-                    </div>
-                    <div className="text-xl font-mono font-bold text-indigo-600">
-                      {formatCurrentTime(currentTime)}
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="skipFocusInput"
-                      checked={skipFocusInput}
-                      onChange={(e) => setSkipFocusInput(e.target.checked)}
-                      className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                    />
-                    <label htmlFor="skipFocusInput" className="text-sm text-gray-700 cursor-pointer select-none">
-                      집중도 입력 제외 (기본값: 중)
-                    </label>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="max-w-md mx-auto px-6 mt-6">
-            <div className="flex gap-2 bg-white rounded-2xl p-2">
+          {!userName ? (
+            <div className="bg-white rounded-3xl p-6 shadow text-center">
+              <h2 className="text-lg mb-3 font-semibold">사용자 이름을 입력하세요</h2>
+              <input
+                className="border-2 rounded-xl w-full p-3 mb-4"
+                onChange={(e) => setUserName(e.target.value)}
+                placeholder="이름 입력"
+                onKeyPress={(e) => {
+                  if (e.key === "Enter") localStorage.setItem("userName", e.target.value);
+                }}
+              />
               <button
-                onClick={() => setView('tracker')}
-                className={`flex-1 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 ${
-                  view === 'tracker'
-                    ? 'bg-indigo-600 text-white'
-                    : 'text-gray-600 hover:bg-gray-100'
-                }`}
+                onClick={() => localStorage.setItem("userName", userName)}
+                className="bg-indigo-600 text-white px-5 py-3 rounded-xl w-full font-bold"
               >
-                <Clock size={20} />
-                트래커
-              </button>
-              <button
-                onClick={() => setView('stats')}
-                className={`flex-1 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 ${
-                  view === 'stats'
-                    ? 'bg-indigo-600 text-white'
-                    : 'text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                <BarChart3 size={20} />
-                통계
+                저장
               </button>
             </div>
-          </div>
+          ) : (
+            <>
+              <div className="bg-white rounded-3xl p-6 shadow mb-6">
+                <p className="text-gray-600 text-sm mb-2">👤 {userName}</p>
+                <p className="font-semibold text-indigo-600">{status}</p>
 
-          <div className="max-w-md mx-auto px-6 mt-6">
-            {view === 'tracker' ? (
-              <>
                 {!dayStarted ? (
-                  <div className="bg-white rounded-3xl p-8 text-center shadow-lg">
-                    <div className="mb-6 pb-6 border-b border-gray-200">
-                      <div className="text-2xl font-bold text-gray-800 mb-2">
-                        {dateInfo.year}년 {dateInfo.month}월 {dateInfo.day}일
-                      </div>
-                      <div className="flex items-center justify-center gap-3 mb-3">
-                        <div className="bg-indigo-100 text-indigo-800 px-4 py-2 rounded-full font-bold">
-                          {dateInfo.dayOfWeek}요일
-                        </div>
-                      </div>
-                      <div className="text-3xl font-mono font-bold text-indigo-600">
-                        {formatCurrentTime(currentTime)}
-                      </div>
-                    </div>
-                    
-                    <div className="text-6xl mb-4">🌅</div>
-                    <h2 className="text-2xl font-bold text-gray-800 mb-4">
-                      오늘의 업무를 시작하세요
-                    </h2>
-                    <button
-                      onClick={startDay}
-                      className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-bold text-xl hover:bg-indigo-700 shadow-lg"
-                    >
-                      하루 시작
-                    </button>
-                  </div>
+                  <button
+                    onClick={startDay}
+                    className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold mt-4 hover:bg-indigo-700"
+                  >
+                    하루 시작 🚀
+                  </button>
                 ) : (
                   <>
-                    <div className="bg-white rounded-3xl p-6 shadow-lg mb-6">
-                      {currentWork ? (
-                        <div className="text-center">
-                          <div className="inline-block bg-green-100 text-green-800 px-4 py-2 rounded-full font-bold mb-4">
-                            {currentWork.category}
-                          </div>
-                          <h3 className="text-xl font-bold text-gray-800 mb-2">
-                            {currentWork.description}
-                          </h3>
-                          <LiveTimer startTime={currentWork.startTime} />
-                          <button
-                            onClick={stopWork}
-                            className="w-full bg-red-500 text-white py-5 rounded-2xl font-bold text-xl mt-6 hover:bg-red-600 shadow-lg flex items-center justify-center gap-3"
-                          >
-                            <Square size={24} />
-                            작업 종료
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="text-center">
-                          <div className="text-5xl mb-4">☕</div>
-                          <h3 className="text-xl font-bold text-orange-600 mb-4">휴식 중</h3>
-                          <div className="mb-2 text-gray-600 font-medium">휴식 시간</div>
-                          <BreakTimer startTime={lastWorkEnd || dayStartTime} />
-                          <button
-                            onClick={openStartForm}
-                            className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-bold text-xl mt-6 hover:bg-indigo-700 shadow-lg flex items-center justify-center gap-3"
-                          >
-                            <Play size={24} />
-                            작업 시작
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="bg-white rounded-3xl p-6 shadow-lg mb-6">
-                      <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                        <Target size={20} />
-                        오늘의 진행상황
-                      </h3>
-                      
-                      <div className="mb-6">
-                        <div className="flex justify-between mb-2">
-                          <span className="text-gray-600 font-medium">목표 달성률</span>
-                          <span className="font-bold text-indigo-600">
-                            {((stats.totalWork / (goalHours * 60 * 60 * 1000)) * 100).toFixed(0)}%
-                          </span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-4">
-                          <div
-                            className="bg-gradient-to-r from-indigo-500 to-purple-500 h-4 rounded-full transition-all"
-                            style={{
-                              width: `${Math.min(((stats.totalWork / (goalHours * 60 * 60 * 1000)) * 100), 100)}%`
-                            }}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-indigo-50 rounded-2xl p-4">
-                          <div className="text-indigo-600 text-sm font-medium mb-1">총 작업</div>
-                          <div className="text-2xl font-bold text-indigo-900">
-                            {formatHM(stats.totalWork).hours}h {formatHM(stats.totalWork).minutes}m
-                          </div>
-                        </div>
-                        <div className="bg-orange-50 rounded-2xl p-4">
-                          <div className="text-orange-600 text-sm font-medium mb-1">총 휴식</div>
-                          <div className="text-2xl font-bold text-orange-900">
-                            {formatHM(stats.totalBreak).hours}h {formatHM(stats.totalBreak).minutes}m
-                          </div>
-                        </div>
-                      </div>
-
-                      {Object.keys(stats.byCategory).length > 0 && (
-                        <div className="mt-6 space-y-3">
-                          {Object.keys(stats.byCategory).map(cat => {
-                            const duration = stats.byCategory[cat] || 0;
-                            const percentage = stats.totalWork > 0 ? (duration / stats.totalWork * 100) : 0;
-                            return (
-                              <div key={cat}>
-                                <div className="flex justify-between mb-1">
-                                  <span className="text-gray-700 font-medium">{cat}</span>
-                                  <span className="text-gray-600">
-                                    {formatHM(duration).hours}h {formatHM(duration).minutes}m
-                                  </span>
-                                </div>
-                                <div className="w-full bg-gray-200 rounded-full h-2">
-                                  <div
-                                    className="bg-indigo-500 h-2 rounded-full"
-                                    style={{ width: `${percentage}%` }}
-                                  />
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="bg-white rounded-3xl p-6 shadow-lg mb-6">
-                      <h3 className="text-lg font-bold text-gray-800 mb-4">오늘의 세션</h3>
-                      {workSessions.length === 0 ? (
-                        <p className="text-gray-500 text-center py-8">아직 세션이 없습니다</p>
-                      ) : (
-                        <div className="space-y-3">
-                          {workSessions.map((session, i) => {
-                            const borderColor = 
-                              session.category === '시작' ? 'border-green-500' :
-                              session.category === '마감' ? 'border-purple-500' :
-                              'border-indigo-500';
-                            
-                            const bgColor = 
-                              session.category === '시작' ? 'bg-green-50' :
-                              session.category === '마감' ? 'bg-purple-50' :
-                              'bg-gray-50';
-                            
-                            const badgeColor = 
-                              session.category === '시작' ? 'bg-green-100 text-green-800' :
-                              session.category === '마감' ? 'bg-purple-100 text-purple-800' :
-                              'bg-indigo-100 text-indigo-800';
-                            
-                            return (
-                              <div key={i} className={`border-l-4 ${borderColor} ${bgColor} rounded-lg p-4`}>
-                                <div className="flex justify-between items-start mb-2">
-                                  <div>
-                                    <span className={`inline-block ${badgeColor} px-2 py-1 rounded text-xs font-bold mb-1`}>
-                                      {session.category}
-                                    </span>
-                                    <div className="font-medium text-gray-800">{session.description}</div>
-                                  </div>
-                                  {session.focusLevel !== '-' && (
-                                    <span className="text-xs bg-gray-200 px-2 py-1 rounded">
-                                      집중도: {session.focusLevel}
-                                    </span>
-                                  )}
-                                </div>
-                                {session.duration > 0 && (
-                                  <div className="text-sm text-gray-600">
-                                    {formatTime(session.duration)}
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-
+                    {!currentWork ? (
+                      <button
+                        onClick={() => startWork()}
+                        className="w-full bg-green-600 text-white py-4 rounded-2xl font-bold hover:bg-green-700"
+                      >
+                        작업 시작 💼
+                      </button>
+                    ) : (
+                      <button
+                        onClick={stopWork}
+                        className="w-full bg-red-500 text-white py-4 rounded-2xl font-bold hover:bg-red-600"
+                      >
+                        작업 종료 ⏹
+                      </button>
+                    )}
                     <button
                       onClick={endDay}
-                      className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-5 rounded-2xl font-bold text-xl hover:from-purple-700 hover:to-indigo-700 shadow-lg"
+                      disabled={syncing}
+                      className="w-full bg-purple-600 text-white py-4 rounded-2xl font-bold mt-3 hover:bg-purple-700 disabled:opacity-50"
                     >
-                      하루 마감하기
+                      하루 마감 📊
                     </button>
                   </>
                 )}
-              </>
-            ) : (
-              <>
-                {isAdmin && (
-                  <div className="bg-gradient-to-r from-yellow-400 to-orange-400 rounded-2xl p-4 mb-4 text-center shadow-lg">
-                    <div className="text-2xl mb-1">👑</div>
-                    <div className="text-white font-bold">관리자 모드</div>
-                    <div className="text-white text-sm">모든 사용자의 데이터를 볼 수 있습니다</div>
-                  </div>
-                )}
+              </div>
 
-                <div className="flex gap-2 mb-6">
-                  {['daily', 'weekly', 'monthly'].map(period => (
-                    <button
-                      key={period}
-                      onClick={() => setStatsView(period)}
-                      className={`flex-1 py-3 rounded-xl font-bold ${
-                        statsView === period
-                          ? 'bg-white text-indigo-600 shadow-md'
-                          : 'bg-white/50 text-gray-600'
-                      }`}
-                    >
-                      {period === 'daily' ? '일간' : period === 'weekly' ? '주간' : '월간'}
-                    </button>
-                  ))}
+              <div className="bg-white rounded-3xl p-6 shadow">
+                <h3 className="font-bold text-gray-700 mb-2">오늘의 작업</h3>
+                <div className="text-2xl font-mono text-indigo-600">
+                  {h}시간 {m}분
                 </div>
-
-                {statsView === 'daily' && getFilteredHistory().length > 0 && (
-                  <div className="space-y-4">
-                    {getFilteredHistory().slice(-7).reverse().map((day, i) => {
-                      const workOnlySessions = day.sessions.filter(s => s.category !== '시작' && s.category !== '마감');
-                      const totalWork = workOnlySessions.reduce((acc, s) => acc + s.duration, 0);
-                      const goalReached = totalWork >= (day.goalHours * 60 * 60 * 1000);
-                      
-                      return (
-                        <div key={i} className="bg-white rounded-3xl p-6 shadow-lg">
-                          <div className="flex justify-between items-start mb-4">
-                            <div>
-                              <h3 className="text-lg font-bold text-gray-800">{day.date}</h3>
-                              {isAdmin && day.userName && (
-                                <div className="text-sm text-indigo-600 font-semibold mt-1">
-                                  👤 {day.userName}
-                                </div>
-                              )}
-                              <p className="text-sm text-gray-600 mt-1">{day.note}</p>
-                            </div>
-                            <div className="text-right">
-                              <div className="text-2xl mb-1">
-                                {'⭐'.repeat(parseInt(day.satisfaction))}
-                              </div>
-                              {goalReached && <div className="text-2xl">🎯</div>}
-                            </div>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-4 mb-4">
-                            <div className="bg-indigo-50 rounded-xl p-3">
-                              <div className="text-indigo-600 text-xs font-medium mb-1">작업시간</div>
-                              <div className="text-lg font-bold text-indigo-900">
-                                {formatHM(totalWork).hours}h {formatHM(totalWork).minutes}m
-                              </div>
-                            </div>
-                            <div className="bg-purple-50 rounded-xl p-3">
-                              <div className="text-purple-600 text-xs font-medium mb-1">달성률</div>
-                              <div className="text-lg font-bold text-purple-900">
-                                {((totalWork / (day.goalHours * 60 * 60 * 1000)) * 100).toFixed(0)}%
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="space-y-2">
-                            {(() => {
-                              const uniqueCategories = [...new Set(workOnlySessions.map(s => s.category))];
-                              return uniqueCategories.map(cat => {
-                                const catDuration = workOnlySessions
-                                  .filter(s => s.category === cat)
-                                  .reduce((acc, s) => acc + s.duration, 0);
-                                
-                                if (catDuration === 0) return null;
-                                
-                                return (
-                                  <div key={cat} className="flex justify-between text-sm">
-                                    <span className="text-gray-600">{cat}</span>
-                                    <span className="font-medium text-gray-800">
-                                      {formatHM(catDuration).hours}h {formatHM(catDuration).minutes}m
-                                    </span>
-                                  </div>
-                                );
-                              });
-                            })()}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {statsView === 'weekly' && (
-                  <div className="bg-white rounded-3xl p-6 shadow-lg">
-                    <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                      <TrendingUp size={24} />
-                      주간 통계
-                    </h3>
-                    {getFilteredHistory().length === 0 ? (
-                      <p className="text-gray-500 text-center py-8">아직 데이터가 없습니다</p>
-                    ) : (
-                      <div className="space-y-6">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="bg-gradient-to-br from-indigo-500 to-purple-500 rounded-2xl p-6 text-white">
-                            <div className="text-sm mb-2">총 작업일</div>
-                            <div className="text-4xl font-bold">{getWeeklyStats().days}일</div>
-                          </div>
-                          <div className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl p-6 text-white">
-                            <div className="text-sm mb-2">총 작업시간</div>
-                            <div className="text-4xl font-bold">
-                              {formatHM(getWeeklyStats().totalWork).hours}h
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="bg-gray-50 rounded-2xl p-6">
-                          <div className="text-gray-700 font-medium mb-2">일평균 작업시간</div>
-                          <div className="text-3xl font-bold text-indigo-600">
-                            {(formatHM(getWeeklyStats().totalWork / Math.max(getWeeklyStats().days, 1)).hours).toFixed(1)}시간
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {statsView === 'monthly' && (
-                  <div className="bg-white rounded-3xl p-6 shadow-lg">
-                    <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                      <Calendar size={24} />
-                      월간 통계
-                    </h3>
-                    {getFilteredHistory().length === 0 ? (
-                      <p className="text-gray-500 text-center py-8">아직 데이터가 없습니다</p>
-                    ) : (
-                      <div className="space-y-6">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="bg-gradient-to-br from-blue-500 to-indigo-500 rounded-2xl p-6 text-white">
-                            <div className="text-sm mb-2">총 작업일</div>
-                            <div className="text-4xl font-bold">{getMonthlyStats().days}일</div>
-                          </div>
-                          <div className="bg-gradient-to-br from-indigo-500 to-purple-500 rounded-2xl p-6 text-white">
-                            <div className="text-sm mb-2">총 작업시간</div>
-                            <div className="text-4xl font-bold">
-                              {formatHM(getMonthlyStats().totalWork).hours}h
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="bg-gray-50 rounded-2xl p-6">
-                          <div className="text-gray-700 font-medium mb-2">일평균 작업시간</div>
-                          <div className="text-3xl font-bold text-indigo-600">
-                            {(formatHM(getMonthlyStats().totalWork / Math.max(getMonthlyStats().days, 1)).hours).toFixed(1)}시간
-                          </div>
-                        </div>
-
-                        {getFilteredHistory().length >= 7 && (
-                          <div className="bg-green-50 rounded-2xl p-6 text-center">
-                            <div className="text-5xl mb-3">🔥</div>
-                            <div className="text-gray-700 font-medium mb-1">연속 작업일</div>
-                            <div className="text-3xl font-bold text-green-600">
-                              {getFilteredHistory().length}일
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {getFilteredHistory().length === 0 && (
-                  <div className="bg-white rounded-3xl p-8 text-center shadow-lg">
-                    <div className="text-6xl mb-4">📊</div>
-                    <h3 className="text-xl font-bold text-gray-800 mb-2">
-                      아직 통계가 없습니다
-                    </h3>
-                    <p className="text-gray-600">
-                      하루를 마감하면 통계를 확인할 수 있어요!
-                    </p>
-                  </div>
-                )}
-
-                {workHistory.length > 0 && (
-                  <div className="bg-white rounded-3xl p-6 shadow-lg mt-6">
-                    <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                      💾 데이터 관리
-                    </h3>
-                    <div className="space-y-3">
-                      {supabase && (
-                        <button
-                          onClick={syncFromSupabase}
-                          disabled={isSyncing}
-                          className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 flex items-center justify-center gap-2 disabled:opacity-50"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                          </svg>
-                          {isSyncing ? '동기화 중...' : '서버 동기화'}
-                        </button>
-                      )}
-                      <button
-                        onClick={exportData}
-                        className="w-full bg-green-600 text-white py-4 rounded-xl font-bold hover:bg-green-700 flex items-center justify-center gap-2"
+                {workSessions.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    {workSessions.map((s, i) => (
+                      <div
+                        key={i}
+                        className="border-l-4 border-indigo-500 bg-indigo-50 p-3 rounded"
                       >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        데이터 백업 (JSON 다운로드)
-                      </button>
-                      <button
-                        onClick={clearData}
-                        className="w-full bg-red-600 text-white py-4 rounded-xl font-bold hover:bg-red-700 flex items-center justify-center gap-2"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                        모든 데이터 삭제
-                      </button>
-                      <div className="text-center text-sm text-gray-500 pt-2">
-                        총 {workHistory.length}일의 기록이 저장되어 있습니다
-                        {isAdmin && ` (모든 사용자)`}
-                      </div>
-                      {supabase && (
-                        <div className="text-center text-xs text-blue-600 pt-1">
-                          ☁️ 서버 백업 활성화됨
+                        <div className="text-sm text-gray-700">{s.cat}</div>
+                        <div className="text-xs text-gray-500">
+                          {(s.duration / 60000).toFixed(0)}분
                         </div>
-                      )}
-                    </div>
+                      </div>
+                    ))}
                   </div>
                 )}
-              </>
-            )}
-          </div>
+              </div>
+
+              <div className="bg-white rounded-3xl p-6 shadow mt-6">
+                <h3 className="font-bold text-gray-700 mb-3">기록 내역</h3>
+                {getHistory().length === 0 ? (
+                  <p className="text-gray-400 text-sm text-center">기록 없음</p>
+                ) : (
+                  <ul className="space-y-2 max-h-48 overflow-y-auto">
+                    {getHistory()
+                      .slice()
+                      .reverse()
+                      .map((d, i) => (
+                        <li key={i} className="text-sm text-gray-700 border-b pb-1">
+                          {d.date} — {d.user_name}
+                        </li>
+                      ))}
+                  </ul>
+                )}
+              </div>
+            </>
+          )}
         </div>
       );
     };
 
-    const LiveTimer = ({ startTime }) => {
-      const [elapsed, setElapsed] = useState(0);
-
-      useEffect(() => {
-        const interval = setInterval(() => {
-          setElapsed(Date.now() - startTime);
-        }, 1000);
-
-        return () => clearInterval(interval);
-      }, [startTime]);
-
-      const hours = Math.floor(elapsed / (1000 * 60 * 60));
-      const minutes = Math.floor((elapsed % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((elapsed % (1000 * 60)) / 1000);
-
-      return (
-        <div className="text-5xl font-bold text-indigo-600 my-6 font-mono">
-          {String(hours).padStart(2, '0')}:{String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
-        </div>
-      );
-    };
-
-    const BreakTimer = ({ startTime }) => {
-      const [elapsed, setElapsed] = useState(0);
-
-      useEffect(() => {
-        const interval = setInterval(() => {
-          setElapsed(Date.now() - startTime);
-        }, 1000);
-
-        return () => clearInterval(interval);
-      }, [startTime]);
-
-      const hours = Math.floor(elapsed / (1000 * 60 * 60));
-      const minutes = Math.floor((elapsed % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((elapsed % (1000 * 60)) / 1000);
-
-      const isWarning = elapsed > 30 * 60 * 1000;
-
-      return (
-        <div className={`text-5xl font-bold my-6 font-mono ${isWarning ? 'text-red-600 animate-pulse' : 'text-orange-500'}`}>
-          {hours > 0 && `${String(hours).padStart(2, '0')}:`}
-          {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
-        </div>
-      );
-    };
-
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<WorkTracker />);
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
   </script>
 </body>
 </html>
