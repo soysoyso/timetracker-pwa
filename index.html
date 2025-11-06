@@ -29,15 +29,15 @@
 <body>
   <div id="root"></div>
 
- <script type="text/babel">
-  const { useState } = React;
+<script type="text/babel">
+  const { useState, useEffect } = React;
 
   // ✅ Supabase 설정
   const SUPABASE_URL = 'https://ypdvepbxhedaywdlavap.supabase.co';
   const SUPABASE_ANON_KEY =
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwZHZlcGJ4aGVkYXl3ZGxhdmFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNTAyMTYsImV4cCI6MjA3NzkyNjIxNn0.xLrxGb9xsNAzDaozd3m9UjegRkw1Tu6hmTuSj326tWo';
 
-  // ✅ 전역 클라이언트 안전하게 생성
+  // ✅ 전역 Supabase 클라이언트 생성
   let supabaseClient = null;
   if (window.supabase?.createClient) {
     supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -49,9 +49,19 @@
 
   console.log('✅ Supabase 인스턴스:', supabaseClient);
 
-  function App() {
+  function WorkTracker() {
     const [status, setStatus] = useState('ready');
+    const [time, setTime] = useState('');
 
+    // ✅ 현재 시간 표시 (테스트용)
+    useEffect(() => {
+      const timer = setInterval(() => {
+        setTime(new Date().toLocaleTimeString());
+      }, 1000);
+      return () => clearInterval(timer);
+    }, []);
+
+    // ✅ Supabase에 데이터 저장
     const handleSave = async () => {
       setStatus('saving');
       try {
@@ -73,13 +83,12 @@
         ]);
 
         if (error) throw error;
-
         console.log('✅ 저장 성공:', data);
-        alert('✅ Supabase에 성공적으로 저장되었습니다!');
+        alert('✅ Supabase에 저장되었습니다!');
         setStatus('done');
       } catch (err) {
         console.error('❌ 서버 저장 실패:', err);
-        alert('❌ 저장 실패! 콘솔 확인 필요');
+        alert('❌ 저장 실패! 콘솔을 확인해주세요.');
         setStatus('ready');
       }
     };
@@ -87,6 +96,7 @@
     return (
       <div className="flex flex-col items-center justify-center h-screen text-center">
         <h1 className="text-3xl font-bold mb-4">⏱️ 업무 트래커</h1>
+        <p className="text-gray-600 mb-2">{time}</p>
         <p className="text-gray-600 mb-6">
           {status === 'ready' && '오늘 하루를 기록해보세요!'}
           {status === 'saving' && '저장 중...'}
@@ -107,8 +117,7 @@
     );
   }
 
-  ReactDOM.render(<App />, document.getElementById('root'));
-
+  ReactDOM.render(<WorkTracker />, document.getElementById('root'));
 
 
     // =========================================
