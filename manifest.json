@@ -1,23 +1,22 @@
 {
   "name": "⏱️ 업무 트래커",
   "short_name": "트래커",
-  "start_url": "/index.html",
+  "start_url": "/timetracker-pwa/index.html",
+  "scope": "/timetracker-pwa/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#4f46e5",
   "description": "업무 시간과 휴식 시간을 추적하는 앱입니다.",
   "icons": [
     {
-      "src": "/icons/192192.jpg",
+      "src": "/timetracker-pwa/icons/192192.jpg",
       "sizes": "192x192",
       "type": "image/jpeg"
     },
     {
-      "src": "/icons/512512.jpg",
+      "src": "/timetracker-pwa/icons/512512.jpg",
       "sizes": "512x512",
       "type": "image/jpeg"
     }
   ]
-
 }
-
