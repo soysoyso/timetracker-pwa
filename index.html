@@ -34,39 +34,42 @@
 <script type="text/babel">
   const { useState, useEffect } = React;
 
-  // ✅ Supabase 설정
   const SUPABASE_URL = 'https://ypdvepbxhedaywdlavap.supabase.co';
   const SUPABASE_ANON_KEY =
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwZHZlcGJ4aGVkYXl3ZGxhdmFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNTAyMTYsImV4cCI6MjA3NzkyNjIxNn0.xLrxGb9xsNAzDaozd3m9UjegRkw1Tu6hmTuSj326tWo';
 
-  // ✅ Supabase 로드 대기 (window.supabase가 생길 때까지)
-  function waitForSupabase() {
+  // ✅ Supabase UMD 스크립트를 동적으로 로드
+  function loadSupabaseScript() {
     return new Promise((resolve, reject) => {
-      let tries = 0;
-      const interval = setInterval(() => {
-        if (window.supabase && window.supabase.createClient) {
-          clearInterval(interval);
-          resolve(window.supabase);
-        } else if (tries > 20) { // 2초 후 실패 처리
-          clearInterval(interval);
-          reject('Supabase 라이브러리가 로드되지 않았습니다.');
-        }
-        tries++;
-      }, 100);
+      if (window.supabase) return resolve(window.supabase);
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.6/dist/umd/supabase.min.js';
+      script.onload = () => resolve(window.supabase);
+      script.onerror = () => reject('Supabase 스크립트 로드 실패');
+      document.head.appendChild(script);
     });
   }
 
-  waitForSupabase()
+  // ✅ 로드 후 연결
+  loadSupabaseScript()
     .then((lib) => {
       const supabase = lib.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
       console.log('✅ Supabase 연결 완료:', supabase);
 
-      // ✅ 간단한 테스트용 앱
       function App() {
         const [connected, setConnected] = useState(false);
 
         useEffect(() => {
-          if (supabase) setConnected(true);
+          // 실제 연결 확인 (간단한 ping)
+          async function test() {
+            try {
+              const { data, error } = await supabase.from('test_table').select('*').limit(1);
+              if (!error) setConnected(true);
+            } catch (e) {
+              console.error('테스트 실패:', e);
+            }
+          }
+          test();
         }, []);
 
         return (
