@@ -11,89 +11,171 @@
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- PWA 기본 설정 -->
   <link rel="manifest" href="/timetracker-pwa/manifest.json" />
   <link rel="icon" href="/timetracker-pwa/icons/192192.jpg" />
-
-  <style>
-    @keyframes bounce {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-10px); }
-    }
-    .animate-bounce {
-      animation: bounce 1s infinite;
-    }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-    .animate-pulse {
-      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-    }
-  </style>
 </head>
-<body>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100">
   <div id="root"></div>
 
-  <!-- ✅ Supabase 연결 (ESM 방식) -->
+  <!-- ✅ Supabase 연결 -->
   <script type="module">
     import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
-
-    // 🔹 실제 프로젝트의 Supabase 정보로 변경
-    const SUPABASE_URL = "https://ypdvepbxhedaywdlavap.supabase.co"; 
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwZHZlcGJ4aGVkYXl3ZGxhdmFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNTAyMTYsImV4cCI6MjA3NzkyNjIxNn0.xLrxGb9xsNAzDaozd3m9UjegRkw1Tu6hmTuSj326tWo"; 
-
-    // Supabase 전역 등록
-    window.supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const SUPABASE_URL = "https://ypdvepbxhedaywdlavap.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwZHZlcGJ4aGVkYXl3ZGxhdmFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNTAyMTYsImV4cCI6MjA3NzkyNjIxNn0.xLrxGb9xsNAzDaozd3m9UjegRkw1Tu6hmTuSj326tWo"; // ← 여기에 직접 붙여넣으세요
+    window.supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   </script>
 
-  <!-- ✅ React 코드 (디자인/기능 모두 동일, Supabase 연동만 수정됨) -->
+  <!-- ✅ React 앱 -->
   <script type="text/babel">
     const { useState, useEffect } = React;
+    const supabase = window.supabaseClient;
 
-    const WorkTracker = () => {
-      // --- 기존의 모든 state, 로직, UI 그대로 유지 ---
-      // Supabase를 window.supabase에서 불러옵니다.
-      const supabase = window.supabase;
+    const App = () => {
+      const [userName, setUserName] = useState(localStorage.getItem("userName") || "");
+      const [goalHours, setGoalHours] = useState(6);
+      const [workSessions, setWorkSessions] = useState([]);
+      const [status, setStatus] = useState("");
+      const [syncing, setSyncing] = useState(false);
 
-      // ✅ 예시: Supabase 사용 시점
-      useEffect(() => {
-        console.log("✅ Supabase 연결 상태 확인:", !!supabase);
-      }, []);
+      const startWork = () => setWorkSessions([...workSessions, { start: Date.now(), end: null }]);
+      const stopWork = () => {
+        const newSessions = [...workSessions];
+        const last = newSessions.pop();
+        newSessions.push({ ...last, end: Date.now() });
+        setWorkSessions(newSessions);
+      };
+
+      const endDay = async () => {
+        const data = {
+          user_name: userName,
+          date: new Date().toLocaleDateString("ko-KR"),
+          sessions: workSessions,
+          goal_hours: goalHours,
+        };
+        localStorage.setItem("workHistory", JSON.stringify([...getHistory(), data]));
+        await saveToSupabase(data);
+      };
+
+      const getHistory = () => JSON.parse(localStorage.getItem("workHistory") || "[]");
+
+      const saveToSupabase = async (dayData) => {
+        setSyncing(true);
+        setStatus("☁️ 서버 저장 중...");
+        try {
+          const { error } = await supabase.from("work_history").insert([dayData]);
+          if (error) throw error;
+          setStatus("✅ 서버 저장 완료!");
+        } catch (err) {
+          console.error(err);
+          setStatus("⚠️ 서버 저장 실패");
+        } finally {
+          setSyncing(false);
+          setTimeout(() => setStatus(""), 4000);
+        }
+      };
+
+      const totalMs = workSessions.reduce((a, s) => a + ((s.end || Date.now()) - s.start), 0);
+      const h = Math.floor(totalMs / 3600000);
+      const m = Math.floor((totalMs % 3600000) / 60000);
 
       return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 pb-20 flex items-center justify-center">
-          <div className="text-center bg-white shadow-xl rounded-3xl p-10">
-            <div className="text-6xl mb-4">⏱️</div>
-            <h1 className="text-3xl font-bold mb-2 text-gray-800">업무 트래커</h1>
-            <p className="text-gray-600 mb-6">업무 시간과 휴식 시간을 기록해보세요.</p>
-            <button
-              className="bg-indigo-600 text-white py-3 px-6 rounded-xl font-bold hover:bg-indigo-700"
-              onClick={() => alert('기존 기능 + Supabase 연결 정상 작동 ✅')}
-            >
-              확인하기
-            </button>
-          </div>
+        <div className="max-w-md mx-auto py-10 px-6">
+          <h1 className="text-3xl font-bold text-gray-800 mb-4 text-center">⏱️ 업무 트래커</h1>
+          {!userName ? (
+            <div className="bg-white rounded-3xl p-6 shadow text-center">
+              <h2 className="text-lg mb-3 font-semibold">사용자 이름 입력</h2>
+              <input
+                className="border-2 rounded-xl w-full p-3 mb-4"
+                onChange={(e) => setUserName(e.target.value)}
+                placeholder="이름"
+              />
+              <button
+                onClick={() => localStorage.setItem("userName", userName)}
+                className="bg-indigo-600 text-white px-5 py-3 rounded-xl w-full font-bold"
+              >
+                저장
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="bg-white rounded-3xl p-6 shadow mb-6 text-center">
+                <p className="text-gray-600 text-sm mb-2">👤 {userName}</p>
+                <p className="font-semibold text-indigo-600">{status}</p>
+                <div className="flex gap-2 mt-4">
+                  <button
+                    onClick={startWork}
+                    className="flex-1 bg-green-600 text-white py-3 rounded-2xl font-bold"
+                  >
+                    시작
+                  </button>
+                  <button
+                    onClick={stopWork}
+                    className="flex-1 bg-red-500 text-white py-3 rounded-2xl font-bold"
+                  >
+                    정지
+                  </button>
+                </div>
+                <button
+                  onClick={endDay}
+                  disabled={syncing}
+                  className="w-full bg-purple-600 text-white py-3 rounded-2xl font-bold mt-3 disabled:opacity-50"
+                >
+                  하루 마감 📊
+                </button>
+              </div>
+
+              <div className="bg-white rounded-3xl p-6 shadow">
+                <h3 className="font-bold text-gray-700 mb-2">오늘의 작업</h3>
+                <div className="text-2xl font-mono text-indigo-600">
+                  {h}시간 {m}분
+                </div>
+                {workSessions.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    {workSessions.map((s, i) => (
+                      <div key={i} className="border-l-4 border-indigo-500 bg-indigo-50 p-3 rounded">
+                        <div className="text-sm text-gray-700">
+                          {(s.end ? (s.end - s.start) / 60000 : (Date.now() - s.start) / 60000).toFixed(0)}분
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-white rounded-3xl p-6 shadow mt-6">
+                <h3 className="font-bold text-gray-700 mb-3">기록 내역</h3>
+                {getHistory().length === 0 ? (
+                  <p className="text-gray-400 text-sm text-center">기록 없음</p>
+                ) : (
+                  <ul className="space-y-2 max-h-48 overflow-y-auto">
+                    {getHistory()
+                      .slice()
+                      .reverse()
+                      .map((d, i) => (
+                        <li key={i} className="text-sm text-gray-700 border-b pb-1">
+                          {d.date} — {d.user_name}
+                        </li>
+                      ))}
+                  </ul>
+                )}
+              </div>
+            </>
+          )}
         </div>
       );
     };
 
-    const root = ReactDOM.createRoot(document.getElementById("root"));
-    root.render(<WorkTracker />);
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
   </script>
 
-  <!-- ✅ PWA 서비스워커 등록 -->
+  <!-- ✅ Service Worker 등록 -->
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
         navigator.serviceWorker
           .register("/timetracker-pwa/service-worker.js")
-          .then((reg) =>
-            console.log("✅ Service Worker 등록 완료:", reg.scope)
-          )
-          .catch((err) =>
-            console.error("❌ Service Worker 등록 실패:", err)
-          );
+          .then((reg) => console.log("✅ Service Worker 등록 완료:", reg.scope))
+          .catch((err) => console.error("❌ Service Worker 등록 실패:", err));
       });
     }
   </script>
