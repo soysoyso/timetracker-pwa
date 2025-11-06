@@ -1,107 +1,48 @@
 <!DOCTYPE html>
-<html lang="ko" data-version="20251106-3">
+<html lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>⏱️ 업무 트래커</title>
-
-  <!-- React -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-
-  <!-- ✅ Supabase (UMD 빌드 버전) - 한 번만! -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.6/dist/umd/supabase.min.js"></script>
-
-  <!-- Babel -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-  <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
-
+  <!-- Supabase 클라이언트 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
-    @keyframes bounce { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-10px);} }
-    .animate-bounce{animation:bounce 1s infinite;}
-    @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.5;} }
-    .animate-pulse{animation:pulse 2s cubic-bezier(0.4,0,0.6,1) infinite;}
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+    .animate-bounce {
+      animation: bounce 1s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .animate-pulse {
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
   </style>
 </head>
-
 <body>
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState } = React;
+    const { useState, useEffect, useRef } = React;
 
-    const SUPABASE_URL = 'https://ypdvepbxhedaywdlavap.supabase.co';
-    const SUPABASE_ANON_KEY =
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwZHZlcGJ4aGVkYXl3ZGxhdmFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNTAyMTYsImV4cCI6MjA3NzkyNjIxNn0.xLrxGb9xsNAzDaozd3m9UjegRkw1Tu6hmTuSj326tWo';
-
-    // ✅ Supabase 초기화
-    let client = null;
-    if (window.supabase?.createClient) {
-      client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    } else if (window.supabase?.default?.createClient) {
-      client = window.supabase.default.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    } else {
-      console.error('❌ Supabase 라이브러리 로드 실패');
+    // ============ Supabase 설정 ============
+    // TODO: Supabase 프로젝트 생성 후 아래 값을 교체하세요
+    const SUPABASE_URL = 'YOUR_SUPABASE_URL'; // 예: https://xxxxx.supabase.co
+    const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY'; // 예: eyJhbGc...
+    
+    // Supabase 클라이언트 초기화
+    let supabase = null;
+    if (SUPABASE_URL !== 'YOUR_SUPABASE_URL' && SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY') {
+      supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     }
-
-    console.log('✅ Supabase 연결 완료:', client);
-
-    function App() {
-      const [status, setStatus] = useState('ready');
-
-      const handleSave = async () => {
-        setStatus('saving');
-        try {
-          const { data, error } = await client
-            .from('daily_reports') // ✅ 실제 테이블명으로 변경
-            .insert([
-              {
-                date: new Date().toISOString().split('T')[0],
-                score: Math.floor(Math.random() * 100),
-                says: '오늘도 수고했어요!',
-              },
-            ]);
-
-          if (error) throw error;
-          console.log('✅ 저장 완료:', data);
-          alert('✅ Supabase에 저장되었습니다!');
-          setStatus('done');
-        } catch (err) {
-          console.error('❌ 동기화 실패:', err);
-          alert('❌ 저장 실패');
-          setStatus('ready');
-        }
-      };
-
-      return (
-        <div className="flex flex-col items-center justify-center h-screen text-center">
-          <h1 className="text-3xl font-bold mb-4">⏱️ 업무 트래커</h1>
-          <p className="text-gray-600 mb-6">
-            {status === 'ready' && '오늘 하루를 기록해보세요!'}
-            {status === 'saving' && '저장 중...'}
-            {status === 'done' && '저장 완료 ✅'}
-          </p>
-          <button
-            onClick={handleSave}
-            disabled={status !== 'ready'}
-            className={`px-5 py-3 rounded-lg text-white font-semibold shadow ${
-              status === 'ready'
-                ? 'bg-indigo-600 hover:bg-indigo-700'
-                : 'bg-gray-400 cursor-not-allowed'
-            }`}
-          >
-            하루 마감하기
-          </button>
-        </div>
-      );
-    }
-
-    ReactDOM.render(<App />, document.getElementById('root'));
-
-
-
     // =========================================
 
     // Lucide Icons as inline SVG components
