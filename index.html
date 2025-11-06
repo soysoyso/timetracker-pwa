@@ -4,18 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>⏱️ 업무 트래커</title>
-<head>
-  <meta charset="UTF-8">
-  <title>⏱️ 업무 트래커</title>
-  
-  <link rel="manifest" href="manifest.json">
-  
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  </head>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Supabase 클라이언트 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     @keyframes bounce {
       0%, 100% { transform: translateY(0); }
@@ -38,6 +32,18 @@
 
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
+
+    // ============ Supabase 설정 ============
+    // TODO: Supabase 프로젝트 생성 후 아래 값을 교체하세요
+    const SUPABASE_URL = 'YOUR_SUPABASE_URL'; // 예: https://xxxxx.supabase.co
+    const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY'; // 예: eyJhbGc...
+    
+    // Supabase 클라이언트 초기화
+    let supabase = null;
+    if (SUPABASE_URL !== 'YOUR_SUPABASE_URL' && SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY') {
+      supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    }
+    // =========================================
 
     // Lucide Icons as inline SVG components
     const Play = ({ size = 24 }) => (
@@ -93,6 +99,12 @@
     );
 
     const WorkTracker = () => {
+      // ============ 새로 추가된 사용자 이름 관련 State ============
+      const [userName, setUserName] = useState('');
+      const [showUserNameInput, setShowUserNameInput] = useState(false);
+      const [inputUserName, setInputUserName] = useState('');
+      const [isAdmin, setIsAdmin] = useState(false);
+      
       const [currentWork, setCurrentWork] = useState(null);
       const [lastWorkEnd, setLastWorkEnd] = useState(null);
       const [workSessions, setWorkSessions] = useState([]);
@@ -109,20 +121,139 @@
       const [skipFocusInput, setSkipFocusInput] = useState(false);
       const [showSettings, setShowSettings] = useState(false);
       const [settings, setSettings] = useState({
-        workAlertMinutes: 90,  // 업무 알림 (분)
-        breakAlertMinutes: 30  // 휴식 알림 (분)
+        workAlertMinutes: 90,
+        breakAlertMinutes: 30
       });
       const [alertDismissed, setAlertDismissed] = useState({
-        work: false,    // 현재 작업 세션의 알림 무시 여부
-        break: false    // 현재 휴식 세션의 알림 무시 여부
+        work: false,
+        break: false
       });
       
-      const categories = ['기획', '회의', '피그마작업'];
+      // ============ 카테고리에 '직접입력' 추가 ============
+      const categories = ['기획', '회의', '피그마작업', '직접입력'];
       const [selectedCategory, setSelectedCategory] = useState('');
       const [workDescription, setWorkDescription] = useState('');
       const [showStartForm, setShowStartForm] = useState(false);
+      const [customCategory, setCustomCategory] = useState('');
 
-      // 로컬스토리지에서 데이터 불러오기
+      // ============ Supabase 관련 State ============
+      const [isSyncing, setIsSyncing] = useState(false);
+      const [syncStatus, setSyncStatus] = useState(''); // 동기화 상태 메시지
+
+      // ============ Supabase 함수들 ============
+      
+      // 서버에 데이터 저장
+      const saveDayToSupabase = async (dayData) => {
+        if (!supabase) {
+          console.log('Supabase가 설정되지 않았습니다. localStorage만 사용합니다.');
+          return { success: false, error: 'Supabase not configured' };
+        }
+
+        try {
+          const { data, error } = await supabase
+            .from('work_history')
+            .insert([{
+              user_name: dayData.userName,
+              date: dayData.date,
+              sessions: dayData.sessions,
+              goal_hours: dayData.goalHours,
+              satisfaction: dayData.satisfaction,
+              note: dayData.note,
+              start_time: dayData.startTime,
+              end_time: dayData.endTime
+            }]);
+
+          if (error) throw error;
+          
+          console.log('✅ 서버 저장 성공:', dayData.date);
+          return { success: true, data };
+        } catch (error) {
+          console.error('❌ 서버 저장 실패:', error);
+          return { success: false, error };
+        }
+      };
+
+      // 서버에서 데이터 동기화
+      const syncFromSupabase = async () => {
+        if (!supabase || !userName) return;
+
+        setIsSyncing(true);
+        setSyncStatus('서버와 동기화 중...');
+
+        try {
+          let query = supabase
+            .from('work_history')
+            .select('*')
+            .order('created_at', { ascending: true });
+
+          // 일반 사용자는 자기 데이터만
+          if (!isAdmin) {
+            query = query.eq('user_name', userName);
+          }
+          // 관리자는 모든 데이터 조회
+
+          const { data, error } = await query;
+
+          if (error) throw error;
+
+          // 서버 데이터를 앱 형식으로 변환
+          const serverHistory = data.map(row => ({
+            userName: row.user_name,
+            date: row.date,
+            sessions: row.sessions,
+            goalHours: row.goal_hours,
+            satisfaction: row.satisfaction,
+            note: row.note,
+            startTime: row.start_time,
+            endTime: row.end_time
+          }));
+
+          // localStorage와 병합 (서버 우선)
+          const localHistory = JSON.parse(localStorage.getItem('workTrackerHistory') || '[]');
+          
+          // 중복 제거 (같은 날짜+사용자)
+          const mergedHistory = [...serverHistory];
+          localHistory.forEach(local => {
+            const exists = serverHistory.some(
+              server => server.date === local.date && server.userName === local.userName
+            );
+            if (!exists) {
+              mergedHistory.push(local);
+            }
+          });
+
+          setWorkHistory(mergedHistory);
+          setSyncStatus('✅ 동기화 완료');
+          setTimeout(() => setSyncStatus(''), 3000);
+
+          console.log(`✅ 서버 동기화 완료: ${data.length}개 레코드`);
+        } catch (error) {
+          console.error('❌ 동기화 실패:', error);
+          setSyncStatus('❌ 동기화 실패');
+          setTimeout(() => setSyncStatus(''), 3000);
+        } finally {
+          setIsSyncing(false);
+        }
+      };
+
+      // ============ 사용자 이름 로드 시 동기화 ============
+      useEffect(() => {
+        if (userName && supabase) {
+          syncFromSupabase();
+        }
+      }, [userName, isAdmin]);
+
+      // ============ 사용자 이름 로드 및 체크 ============
+      useEffect(() => {
+        const savedUserName = localStorage.getItem('workTrackerUserName');
+        if (savedUserName) {
+          setUserName(savedUserName);
+          setIsAdmin(savedUserName.toLowerCase() === 'admin');
+        } else {
+          setShowUserNameInput(true);
+        }
+      }, []);
+
       useEffect(() => {
         const savedHistory = localStorage.getItem('workTrackerHistory');
         if (savedHistory) {
@@ -134,7 +265,6 @@
           }
         }
         
-        // 설정 불러오기
         const savedSettings = localStorage.getItem('workTrackerSettings');
         if (savedSettings) {
           try {
@@ -146,14 +276,12 @@
         }
       }, []);
 
-      // workHistory 저장
       useEffect(() => {
         if (workHistory.length > 0) {
           localStorage.setItem('workTrackerHistory', JSON.stringify(workHistory));
         }
       }, [workHistory]);
 
-      // 현재 시간 업데이트
       useEffect(() => {
         const timer = setInterval(() => {
           setCurrentTime(new Date());
@@ -161,7 +289,18 @@
         return () => clearInterval(timer);
       }, []);
 
-      // 날짜와 요일 포맷
+      // ============ 사용자 이름 저장 함수 ============
+      const saveUserName = () => {
+        if (!inputUserName.trim()) {
+          alert('사용자 이름을 입력해주세요');
+          return;
+        }
+        localStorage.setItem('workTrackerUserName', inputUserName);
+        setUserName(inputUserName);
+        setIsAdmin(inputUserName.toLowerCase() === 'admin');
+        setShowUserNameInput(false);
+      };
+
       const formatDate = (date) => {
         const year = date.getFullYear();
         const month = date.getMonth() + 1;
@@ -171,7 +310,6 @@
         return { year, month, day, dayOfWeek };
       };
 
-      // 시간 포맷
       const formatCurrentTime = (date) => {
         const hours = String(date.getHours()).padStart(2, '0');
         const minutes = String(date.getMinutes()).padStart(2, '0');
@@ -181,12 +319,10 @@
 
       const dateInfo = formatDate(currentTime);
 
-      // 알림 체크
       useEffect(() => {
         const interval = setInterval(() => {
           const now = Date.now();
           
-          // 휴식 알림 체크 (설정값 사용) - dismissed 상태 확인
           if (lastWorkEnd && !currentWork && !alertDismissed.break) {
             const breakMinutes = (now - lastWorkEnd) / (1000 * 60);
             if (breakMinutes > settings.breakAlertMinutes) {
@@ -195,7 +331,6 @@
             }
           }
           
-          // 작업 알림 체크 (설정값 사용) - dismissed 상태 확인
           if (currentWork && !alertDismissed.work) {
             const workMinutes = (now - currentWork.startTime) / (1000 * 60);
             if (workMinutes > settings.workAlertMinutes) {
@@ -237,7 +372,6 @@
         setDayStartTime(startTime);
         setShowGoalInput(false);
         
-        // 하루 시작 세션 추가
         const startSession = {
           category: '시작',
           description: `하루 시작 - ${timeStr}`,
@@ -253,23 +387,30 @@
         setShowStartForm(true);
         setSelectedCategory('');
         setWorkDescription('');
+        setCustomCategory('');
       };
 
       const startWork = () => {
-        if (!selectedCategory || !workDescription.trim()) {
+        const finalCategory = selectedCategory === '직접입력' ? customCategory : selectedCategory;
+        
+        if (!finalCategory || !workDescription.trim()) {
           alert('카테고리와 작업 내용을 입력해주세요');
           return;
         }
         
+        if (selectedCategory === '직접입력' && !customCategory.trim()) {
+          alert('카테고리를 직접 입력해주세요');
+          return;
+        }
+        
         setCurrentWork({
-          category: selectedCategory,
+          category: finalCategory,
           description: workDescription,
           startTime: Date.now(),
           focusLevel: null
         });
         setShowStartForm(false);
         setShowAlert(false);
-        // 새 작업 시작 시 work 알림 리셋
         setAlertDismissed({ ...alertDismissed, work: false });
       };
 
@@ -278,10 +419,8 @@
         
         let focusLevel;
         if (skipFocusInput) {
-          // 집중도 입력 제외 시 기본값 "중" 사용
           focusLevel = '2';
         } else {
-          // 일반적으로 집중도 물어보기
           focusLevel = prompt('집중도를 평가해주세요\n상: 3, 중: 2, 하: 1', '2');
         }
         
@@ -298,15 +437,13 @@
         setLastWorkEnd(Date.now());
         setCurrentWork(null);
         setShowAlert(false);
-        // 작업 종료 시 break 알림 리셋
         setAlertDismissed({ ...alertDismissed, break: false });
       };
 
-      const endDay = () => {
+      const endDay = async () => {
         const satisfaction = prompt('오늘 하루를 평가해주세요 (1-5점)', '3');
         const note = prompt('오늘 하루 한줄 회고를 작성해주세요', '');
         
-        // 하루 마감 세션 추가
         const endTime = Date.now();
         const date = new Date(endTime);
         const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -327,6 +464,7 @@
         const finalSessions = [...workSessions, endSession];
         
         const dayData = {
+          userName: userName,
           date: new Date().toLocaleDateString('ko-KR'),
           sessions: finalSessions,
           goalHours,
@@ -336,7 +474,22 @@
           endTime: endTime
         };
         
-        setWorkHistory([...workHistory, dayData]);
+        // localStorage에 저장
+        const newHistory = [...workHistory, dayData];
+        setWorkHistory(newHistory);
+        
+        // Supabase에 저장 (비동기)
+        if (supabase) {
+          setSyncStatus('서버에 저장 중...');
+          const result = await saveDayToSupabase(dayData);
+          if (result.success) {
+            setSyncStatus('✅ 서버 저장 완료');
+          } else {
+            setSyncStatus('⚠️ 서버 저장 실패 (로컬에는 저장됨)');
+          }
+          setTimeout(() => setSyncStatus(''), 3000);
+        }
+        
         setDayStarted(false);
         setCurrentWork(null);
         setWorkSessions([]);
@@ -344,7 +497,6 @@
         setView('stats');
       };
 
-      // 데이터 내보내기
       const exportData = () => {
         const dataStr = JSON.stringify(workHistory, null, 2);
         const blob = new Blob([dataStr], { type: 'application/json' });
@@ -356,7 +508,6 @@
         URL.revokeObjectURL(url);
       };
 
-      // 데이터 지우기
       const clearData = () => {
         if (confirm('정말로 모든 데이터를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
           localStorage.removeItem('workTrackerHistory');
@@ -365,15 +516,23 @@
         }
       };
 
-      // 설정 저장
       const saveSettings = () => {
         localStorage.setItem('workTrackerSettings', JSON.stringify(settings));
         setShowSettings(false);
         alert('설정이 저장되었습니다! ✅');
       };
 
+      const getFilteredHistory = () => {
+        if (isAdmin) {
+          return workHistory;
+        }
+        // userName이 없는 기존 데이터는 현재 사용자 것으로 간주
+        return workHistory.filter(day => 
+          !day.userName || day.userName === userName
+        );
+      };
+
       const calculateStats = () => {
-        // 시작/마감 세션 제외하고 계산
         const workOnlySessions = workSessions.filter(s => s.category !== '시작' && s.category !== '마감');
         
         const totalWork = workOnlySessions.reduce((acc, s) => acc + s.duration, 0);
@@ -383,7 +542,8 @@
         }, 0);
         
         const byCategory = {};
-        categories.forEach(cat => {
+        const uniqueCategories = [...new Set(workOnlySessions.map(s => s.category))];
+        uniqueCategories.forEach(cat => {
           byCategory[cat] = workOnlySessions
             .filter(s => s.category === cat)
             .reduce((acc, s) => acc + s.duration, 0);
@@ -397,20 +557,24 @@
       const dismissAlert = (action) => {
         setShowAlert(false);
         
-        // "계속" 버튼을 누른 경우 해당 타입의 알림 무시
-        if (action === 'continue') {
-          if (alertMessage.includes('휴식')) {
-            // 작업 알림 - 계속 일하기
+        if (action === 'rest') {
+          stopWork();
+          setAlertDismissed({ ...alertDismissed, work: true });
+        } else if (action === 'work') {
+          openStartForm();
+          setAlertDismissed({ ...alertDismissed, break: true });
+        } else if (action === 'continue') {
+          if (currentWork) {
             setAlertDismissed({ ...alertDismissed, work: true });
           } else {
-            // 휴식 알림 - 계속 휴식
             setAlertDismissed({ ...alertDismissed, break: true });
           }
         }
       };
 
       const getWeeklyStats = () => {
-        const lastSevenDays = workHistory.slice(-7);
+        const filteredHistory = getFilteredHistory();
+        const lastSevenDays = filteredHistory.slice(-7);
         const totalWork = lastSevenDays.reduce((acc, day) => {
           const workOnlySessions = day.sessions.filter(s => s.category !== '시작' && s.category !== '마감');
           return acc + workOnlySessions.reduce((sum, s) => sum + s.duration, 0);
@@ -419,7 +583,8 @@
       };
 
       const getMonthlyStats = () => {
-        const lastThirtyDays = workHistory.slice(-30);
+        const filteredHistory = getFilteredHistory();
+        const lastThirtyDays = filteredHistory.slice(-30);
         const totalWork = lastThirtyDays.reduce((acc, day) => {
           const workOnlySessions = day.sessions.filter(s => s.category !== '시작' && s.category !== '마감');
           return acc + workOnlySessions.reduce((sum, s) => sum + s.duration, 0);
@@ -429,7 +594,40 @@
 
       return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 pb-20">
-          {/* Alert Overlay */}
+          {showUserNameInput && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-6">
+              <div className="bg-white rounded-3xl p-8 max-w-sm w-full">
+                <div className="text-center mb-6">
+                  <div className="text-6xl mb-4">👤</div>
+                  <h2 className="text-2xl font-bold text-gray-800 mb-2">환영합니다!</h2>
+                  <p className="text-gray-600">업무 트래커를 시작하기 전에<br/>사용자 이름을 입력해주세요</p>
+                </div>
+                
+                <div className="mb-6">
+                  <label className="block text-gray-700 mb-3 font-medium">사용자 이름</label>
+                  <input
+                    type="text"
+                    value={inputUserName}
+                    onChange={(e) => setInputUserName(e.target.value)}
+                    placeholder="이름을 입력하세요"
+                    className="w-full p-4 border-2 border-gray-300 rounded-xl text-center text-lg"
+                    onKeyPress={(e) => e.key === 'Enter' && saveUserName()}
+                  />
+                  <p className="text-xs text-gray-500 mt-2 text-center">
+                    입력한 이름으로 데이터가 구분됩니다
+                  </p>
+                </div>
+                
+                <button
+                  onClick={saveUserName}
+                  className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700"
+                >
+                  시작하기 🚀
+                </button>
+              </div>
+            </div>
+          )}
+
           {showAlert && (
             <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-6">
               <div className="bg-white rounded-3xl p-8 text-center max-w-sm w-full animate-bounce">
@@ -438,7 +636,6 @@
                   {alertMessage}
                 </h2>
                 <div className="space-y-3">
-                  {/* 작업 알림 (오래 일했을 때) */}
                   {alertMessage.includes('휴식') && (
                     <>
                       <button
@@ -456,7 +653,6 @@
                     </>
                   )}
                   
-                  {/* 휴식 알림 (오래 쉬었을 때) */}
                   {alertMessage.includes('일해야') && (
                     <>
                       <button
@@ -478,7 +674,6 @@
             </div>
           )}
 
-          {/* Goal Input Modal */}
           {showGoalInput && (
             <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex items-center justify-center p-6">
               <div className="bg-white rounded-3xl p-8 max-w-sm w-full">
@@ -514,7 +709,6 @@
             </div>
           )}
 
-          {/* Work Start Form Modal */}
           {showStartForm && (
             <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex items-center justify-center p-6">
               <div className="bg-white rounded-3xl p-8 max-w-sm w-full">
@@ -522,7 +716,7 @@
                 
                 <div className="mb-6">
                   <label className="block text-gray-700 mb-3 font-medium">카테고리</label>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 gap-2">
                     {categories.map(cat => (
                       <button
                         key={cat}
@@ -538,6 +732,19 @@
                     ))}
                   </div>
                 </div>
+
+                {selectedCategory === '직접입력' && (
+                  <div className="mb-6">
+                    <label className="block text-gray-700 mb-3 font-medium">카테고리 직접 입력</label>
+                    <input
+                      type="text"
+                      value={customCategory}
+                      onChange={(e) => setCustomCategory(e.target.value)}
+                      placeholder="카테고리 이름을 입력하세요"
+                      className="w-full p-4 border-2 border-indigo-300 rounded-xl bg-indigo-50"
+                    />
+                  </div>
+                )}
 
                 <div className="mb-6">
                   <label className="block text-gray-700 mb-3 font-medium">작업 내용</label>
@@ -568,7 +775,6 @@
             </div>
           )}
 
-          {/* Settings Modal */}
           {showSettings && (
             <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex items-center justify-center p-6">
               <div className="bg-white rounded-3xl p-8 max-w-sm w-full">
@@ -581,7 +787,6 @@
                 </h2>
                 
                 <div className="space-y-6">
-                  {/* 업무 알림 */}
                   <div>
                     <label className="block text-gray-700 mb-3 font-medium">
                       업무 알림 ⏰
@@ -602,7 +807,6 @@
                     </div>
                   </div>
 
-                  {/* 휴식 알림 */}
                   <div>
                     <label className="block text-gray-700 mb-3 font-medium">
                       휴식 알림 ☕
@@ -642,13 +846,25 @@
             </div>
           )}
 
-          {/* Header */}
           <div className="bg-white shadow-md">
             <div className="max-w-md mx-auto px-6 py-6">
               <div className="flex justify-between items-start">
                 <div>
                   <h1 className="text-3xl font-bold text-gray-800">⏱️ 업무 트래커</h1>
-                  <p className="text-gray-600 mt-1">나를 알아가는 시간</p>
+                  <p className="text-gray-600 mt-1">
+                    나를 알아가는 시간 
+                    {userName && (
+                      <span className="ml-2 text-indigo-600 font-semibold">
+                        ({userName}{isAdmin && ' 👑'})
+                      </span>
+                    )}
+                  </p>
+                  {/* 동기화 상태 표시 */}
+                  {syncStatus && (
+                    <div className="mt-2 text-sm text-indigo-600 font-medium">
+                      {syncStatus}
+                    </div>
+                  )}
                 </div>
                 <button
                   onClick={() => setShowSettings(true)}
@@ -678,7 +894,6 @@
                     </div>
                   </div>
                   
-                  {/* 집중도 입력 제외 체크박스 */}
                   <div className="flex items-center gap-2">
                     <input
                       type="checkbox"
@@ -696,7 +911,6 @@
             </div>
           </div>
 
-          {/* Navigation */}
           <div className="max-w-md mx-auto px-6 mt-6">
             <div className="flex gap-2 bg-white rounded-2xl p-2">
               <button
@@ -724,7 +938,6 @@
             </div>
           </div>
 
-          {/* Main Content */}
           <div className="max-w-md mx-auto px-6 mt-6">
             {view === 'tracker' ? (
               <>
@@ -757,7 +970,6 @@
                   </div>
                 ) : (
                   <>
-                    {/* Current Status */}
                     <div className="bg-white rounded-3xl p-6 shadow-lg mb-6">
                       {currentWork ? (
                         <div className="text-center">
@@ -793,7 +1005,6 @@
                       )}
                     </div>
 
-                    {/* Today's Progress */}
                     <div className="bg-white rounded-3xl p-6 shadow-lg mb-6">
                       <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
                         <Target size={20} />
@@ -832,31 +1043,32 @@
                         </div>
                       </div>
 
-                      <div className="mt-6 space-y-3">
-                        {categories.map(cat => {
-                          const duration = stats.byCategory[cat] || 0;
-                          const percentage = stats.totalWork > 0 ? (duration / stats.totalWork * 100) : 0;
-                          return (
-                            <div key={cat}>
-                              <div className="flex justify-between mb-1">
-                                <span className="text-gray-700 font-medium">{cat}</span>
-                                <span className="text-gray-600">
-                                  {formatHM(duration).hours}h {formatHM(duration).minutes}m
-                                </span>
+                      {Object.keys(stats.byCategory).length > 0 && (
+                        <div className="mt-6 space-y-3">
+                          {Object.keys(stats.byCategory).map(cat => {
+                            const duration = stats.byCategory[cat] || 0;
+                            const percentage = stats.totalWork > 0 ? (duration / stats.totalWork * 100) : 0;
+                            return (
+                              <div key={cat}>
+                                <div className="flex justify-between mb-1">
+                                  <span className="text-gray-700 font-medium">{cat}</span>
+                                  <span className="text-gray-600">
+                                    {formatHM(duration).hours}h {formatHM(duration).minutes}m
+                                  </span>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-2">
+                                  <div
+                                    className="bg-indigo-500 h-2 rounded-full"
+                                    style={{ width: `${percentage}%` }}
+                                  />
+                                </div>
                               </div>
-                              <div className="w-full bg-gray-200 rounded-full h-2">
-                                <div
-                                  className="bg-indigo-500 h-2 rounded-full"
-                                  style={{ width: `${percentage}%` }}
-                                />
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
 
-                    {/* Sessions List */}
                     <div className="bg-white rounded-3xl p-6 shadow-lg mb-6">
                       <h3 className="text-lg font-bold text-gray-800 mb-4">오늘의 세션</h3>
                       {workSessions.length === 0 ? (
@@ -917,6 +1129,14 @@
               </>
             ) : (
               <>
+                {isAdmin && (
+                  <div className="bg-gradient-to-r from-yellow-400 to-orange-400 rounded-2xl p-4 mb-4 text-center shadow-lg">
+                    <div className="text-2xl mb-1">👑</div>
+                    <div className="text-white font-bold">관리자 모드</div>
+                    <div className="text-white text-sm">모든 사용자의 데이터를 볼 수 있습니다</div>
+                  </div>
+                )}
+
                 <div className="flex gap-2 mb-6">
                   {['daily', 'weekly', 'monthly'].map(period => (
                     <button
@@ -933,10 +1153,9 @@
                   ))}
                 </div>
 
-                {statsView === 'daily' && workHistory.length > 0 && (
+                {statsView === 'daily' && getFilteredHistory().length > 0 && (
                   <div className="space-y-4">
-                    {workHistory.slice(-7).reverse().map((day, i) => {
-                      // 시작/마감 세션 제외하고 계산
+                    {getFilteredHistory().slice(-7).reverse().map((day, i) => {
                       const workOnlySessions = day.sessions.filter(s => s.category !== '시작' && s.category !== '마감');
                       const totalWork = workOnlySessions.reduce((acc, s) => acc + s.duration, 0);
                       const goalReached = totalWork >= (day.goalHours * 60 * 60 * 1000);
@@ -946,6 +1165,11 @@
                           <div className="flex justify-between items-start mb-4">
                             <div>
                               <h3 className="text-lg font-bold text-gray-800">{day.date}</h3>
+                              {isAdmin && day.userName && (
+                                <div className="text-sm text-indigo-600 font-semibold mt-1">
+                                  👤 {day.userName}
+                                </div>
+                              )}
                               <p className="text-sm text-gray-600 mt-1">{day.note}</p>
                             </div>
                             <div className="text-right">
@@ -972,22 +1196,25 @@
                           </div>
 
                           <div className="space-y-2">
-                            {categories.map(cat => {
-                              const catDuration = workOnlySessions
-                                .filter(s => s.category === cat)
-                                .reduce((acc, s) => acc + s.duration, 0);
-                              
-                              if (catDuration === 0) return null;
-                              
-                              return (
-                                <div key={cat} className="flex justify-between text-sm">
-                                  <span className="text-gray-600">{cat}</span>
-                                  <span className="font-medium text-gray-800">
-                                    {formatHM(catDuration).hours}h {formatHM(catDuration).minutes}m
-                                  </span>
-                                </div>
-                              );
-                            })}
+                            {(() => {
+                              const uniqueCategories = [...new Set(workOnlySessions.map(s => s.category))];
+                              return uniqueCategories.map(cat => {
+                                const catDuration = workOnlySessions
+                                  .filter(s => s.category === cat)
+                                  .reduce((acc, s) => acc + s.duration, 0);
+                                
+                                if (catDuration === 0) return null;
+                                
+                                return (
+                                  <div key={cat} className="flex justify-between text-sm">
+                                    <span className="text-gray-600">{cat}</span>
+                                    <span className="font-medium text-gray-800">
+                                      {formatHM(catDuration).hours}h {formatHM(catDuration).minutes}m
+                                    </span>
+                                  </div>
+                                );
+                              });
+                            })()}
                           </div>
                         </div>
                       );
@@ -1001,7 +1228,7 @@
                       <TrendingUp size={24} />
                       주간 통계
                     </h3>
-                    {workHistory.length === 0 ? (
+                    {getFilteredHistory().length === 0 ? (
                       <p className="text-gray-500 text-center py-8">아직 데이터가 없습니다</p>
                     ) : (
                       <div className="space-y-6">
@@ -1035,7 +1262,7 @@
                       <Calendar size={24} />
                       월간 통계
                     </h3>
-                    {workHistory.length === 0 ? (
+                    {getFilteredHistory().length === 0 ? (
                       <p className="text-gray-500 text-center py-8">아직 데이터가 없습니다</p>
                     ) : (
                       <div className="space-y-6">
@@ -1059,12 +1286,12 @@
                           </div>
                         </div>
 
-                        {workHistory.length >= 7 && (
+                        {getFilteredHistory().length >= 7 && (
                           <div className="bg-green-50 rounded-2xl p-6 text-center">
                             <div className="text-5xl mb-3">🔥</div>
                             <div className="text-gray-700 font-medium mb-1">연속 작업일</div>
                             <div className="text-3xl font-bold text-green-600">
-                              {workHistory.length}일
+                              {getFilteredHistory().length}일
                             </div>
                           </div>
                         )}
@@ -1073,7 +1300,7 @@
                   </div>
                 )}
 
-                {workHistory.length === 0 && (
+                {getFilteredHistory().length === 0 && (
                   <div className="bg-white rounded-3xl p-8 text-center shadow-lg">
                     <div className="text-6xl mb-4">📊</div>
                     <h3 className="text-xl font-bold text-gray-800 mb-2">
@@ -1091,6 +1318,18 @@
                       💾 데이터 관리
                     </h3>
                     <div className="space-y-3">
+                      {supabase && (
+                        <button
+                          onClick={syncFromSupabase}
+                          disabled={isSyncing}
+                          className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 flex items-center justify-center gap-2 disabled:opacity-50"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          </svg>
+                          {isSyncing ? '동기화 중...' : '서버 동기화'}
+                        </button>
+                      )}
                       <button
                         onClick={exportData}
                         className="w-full bg-green-600 text-white py-4 rounded-xl font-bold hover:bg-green-700 flex items-center justify-center gap-2"
@@ -1111,7 +1350,13 @@
                       </button>
                       <div className="text-center text-sm text-gray-500 pt-2">
                         총 {workHistory.length}일의 기록이 저장되어 있습니다
+                        {isAdmin && ` (모든 사용자)`}
                       </div>
+                      {supabase && (
+                        <div className="text-center text-xs text-blue-600 pt-1">
+                          ☁️ 서버 백업 활성화됨
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -1122,7 +1367,6 @@
       );
     };
 
-    // Live Timer Component
     const LiveTimer = ({ startTime }) => {
       const [elapsed, setElapsed] = useState(0);
 
@@ -1145,7 +1389,6 @@
       );
     };
 
-    // Break Timer Component
     const BreakTimer = ({ startTime }) => {
       const [elapsed, setElapsed] = useState(0);
 
@@ -1171,26 +1414,8 @@
       );
     };
 
-    // Render the app
     const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(<WorkTracker />);
   </script>
-</script>
-</body>
-
-<script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/service-worker.js')
-        .then(registration => {
-          console.log('ServiceWorker registration successful with scope: ', registration.scope);
-        })
-        .catch(error => {
-          console.log('ServiceWorker registration failed: ', error);
-        });
-    });
-  }
-</script>
-</html>
 </body>
 </html>
