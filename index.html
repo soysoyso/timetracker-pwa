@@ -1,20 +1,59 @@
 <!DOCTYPE html>
+<html lang="ko" data-version="20251106-3">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>⏱️ 업무 트래커</title>
+
+  <!-- React -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- ✅ Supabase (UMD 빌드 버전) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.6/dist/umd/supabase.min.js"></script>
+
+  <style>
+    @keyframes bounce { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-10px);} }
+    .animate-bounce{animation:bounce 1s infinite;}
+    @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.5;} }
+    .animate-pulse{animation:pulse 2s cubic-bezier(0.4,0,0.6,1) infinite;}
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    // ✅ Supabase 설정
+    const SUPABASE_URL = 'https://ypdvepbxhedaywdlavap.supabase.co';
+    const SUPABASE_ANON_KEY =
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwZHZlcGJ4aGVkYXl3ZGxhdmFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNTAyMTYsImV4cCI6MjA3NzkyNjIxNn0.xLrxGb9xsNAzDaozd3m9UjegRkw1Tu6hmTuSj326tWo';
+
+    let supabase = null;
+    if (window.supabase) {
+      supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      console.log('✅ Supabase 연결 완료:', supabase);
+    } else {
+      console.error('❌ Supabase 로드 실패');
+    }
+
+    <!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>⏱️ 업무 트래커</title>
-  <!-- React -->
-<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-<!-- Tailwind -->
-<script src="https://cdn.tailwindcss.com"></script>
-
-<!-- ✅ Supabase (반드시 이 위치에서) -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.6/dist/umd/supabase.min.js"></script>
-
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Supabase 클라이언트 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     @keyframes bounce {
       0%, 100% { transform: translateY(0); }
@@ -40,8 +79,8 @@
 
     // ============ Supabase 설정 ============
     // TODO: Supabase 프로젝트 생성 후 아래 값을 교체하세요
-    const SUPABASE_URL = 'https://ypdvepbxhedaywdlavap.supabase.co'; // 예: https://xxxxx.supabase.co
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwZHZlcGJ4aGVkYXl3ZGxhdmFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNTAyMTYsImV4cCI6MjA3NzkyNjIxNn0.xLrxGb9xsNAzDaozd3m9UjegRkw1Tu6hmTuSj326tWo'; // 예: eyJhbGc...
+    const SUPABASE_URL = 'YOUR_SUPABASE_URL'; // 예: https://xxxxx.supabase.co
+    const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY'; // 예: eyJhbGc...
     
     // Supabase 클라이언트 초기화
     let supabase = null;
