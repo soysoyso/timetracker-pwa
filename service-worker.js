@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tracking-app-cache-v5';
+const CACHE_NAME = 'tracking-app-cache-v6';
 
 // 📦 앱이 오프라인에서도 동작하도록 미리 저장할 파일 목록
 const urlsToCache = [
@@ -58,4 +58,5 @@ self.addEventListener('activate', (event) => {
     })
   );
 });
+
 
