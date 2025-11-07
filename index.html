@@ -41,13 +41,14 @@
 
   // ============ Supabase 설정 ============
   const SUPABASE_URL = 'https://ypdvepbxhedaywdlavap.supabase.co';
-  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwZHZlcGJ4aGVkYXl3ZGxhdmFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNTAyMTYsImV4cCI6MjA3NzkyNjIxNn0.xLrxGb9xsNAzDaozd3m9UjegRkw1Tu6hmTuSj326tWo';
+  const SUPABASE_ANON_KEY =
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwZHZlcGJ4aGVkYXl3ZGxhdmFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNTAyMTYsImV4cCI6MjA3NzkyNjIxNn0.xLrxGb9xsNAzDaozd3m9UjegRkw1Tu6hmTuSj326tWo';
 
   // ✅ Supabase 초기화 함수 (안전 대기 포함)
   async function initSupabase() {
     console.log("🧠 Supabase 초기화 중...");
 
-    // 라이브러리 로드 대기
+    // Supabase 스크립트 로드 대기 (혹시 로드 안된 경우 대비)
     if (!window.supabase) {
       await new Promise((resolve) => {
         const interval = setInterval(() => {
@@ -59,15 +60,16 @@
       });
     }
 
-    // 환경변수 확인
+    // 환경 변수 검증
     if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
       console.warn("⚠️ Supabase 설정이 비어 있습니다. 로컬 저장소만 사용합니다.");
       return null;
     }
 
-    // UMD 환경에서는 window.supabase.default 구조일 수도 있음
+    // UMD 환경에 맞게 처리 (default 포함)
     const lib = window.supabase.default || window.supabase;
-    if (!lib.createClient) {
+
+    if (!lib || typeof lib.createClient !== "function") {
       console.error("🚨 Supabase 라이브러리 로드 실패 (createClient 없음):", lib);
       return null;
     }
@@ -77,10 +79,14 @@
     return client;
   }
 
-  // ✅ Supabase 클라이언트 생성
+  // ✅ 전역 Supabase 클라이언트 생성
   let supabase = null;
+
   (async () => {
     supabase = await initSupabase();
+    if (!supabase) {
+      console.error("❌ Supabase 초기화 실패 — 클라이언트 생성 안됨");
+    }
   })();
     // =========================================
 
