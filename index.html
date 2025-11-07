@@ -1,105 +1,87 @@
 <!DOCTYPE html>
 <html lang="ko">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>⏱️ 업무 트래커</title>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>업무 트래커</title>
 
- <!-- ✅ Supabase (맨 위) -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.42.4/dist/umd/supabase.min.js"></script>
+    <!-- ✅ Supabase 먼저 로드 -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.42.4/dist/umd/supabase.min.js"
+      onload="window.supabaseLoaded = true;"
+    ></script>
 
-<!-- React -->
-<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- React & Babel -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-<!-- Babel -->
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
 
-<!-- Tailwind -->
-<script src="https://cdn.tailwindcss.com"></script>
+  <body>
+    <div id="root"></div>
 
-  <style>
-    @keyframes bounce {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-10px); }
-    }
-    .animate-bounce {
-      animation: bounce 1s infinite;
-    }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-    .animate-pulse {
-      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-    }
-  </style>
-</head>
-<body>
-  <div id="root"></div>
+    <!-- ✅ Supabase가 완전히 로드된 후 실행 -->
+    <script type="text/babel">
+      async function waitForSupabase() {
+        while (!window.supabaseLoaded || !window.supabase) {
+          console.log("⏳ Supabase 로드 대기 중...");
+          await new Promise((r) => setTimeout(r, 300));
+        }
+        console.log("✅ Supabase 로드 완료:", window.supabase);
+      }
 
- <script type="text/babel">
-console.log("🧠 window.supabase 현재 상태:", window.supabase);
-console.log("🧠 window.supabase.default 상태:", window.supabase?.default);
+      waitForSupabase().then(() => {
+        const { useState, useEffect } = React;
 
-const lib = window.supabase?.default || window.supabase;
-if (!lib) {
-  alert("❌ Supabase가 아직 로드되지 않았습니다. 잠시 후 새로고침 해주세요.");
-} else {
-  console.log("✅ Supabase 정상 로드됨:", lib);
-}
+        const SUPABASE_URL = "https://ypdvepbxhedaywdlavap.supabase.co";
+        const SUPABASE_ANON_KEY =
+          "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwZHZlcGJ4aGVkYXl3ZGxhdmFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNTAyMTYsImV4cCI6MjA3NzkyNjIxNn0.xLrxGb9xsNAzDaozd3m9UjegRkw1Tu6hmTuSj326tWo";
 
-   const { useState, useEffect } = React;
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  // ============ Supabase 설정 ============
-  const SUPABASE_URL = 'https://ypdvepbxhedaywdlavap.supabase.co';
-  const SUPABASE_ANON_KEY =
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwZHZlcGJ4aGVkYXl3ZGxhdmFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNTAyMTYsImV4cCI6MjA3NzkyNjIxNn0.xLrxGb9xsNAzDaozd3m9UjegRkw1Tu6hmTuSj326tWo';
+        async function handleSave() {
+          const { data, error } = await supabase
+            .from("work_history")
+            .insert([
+              {
+                user_name: "요까이",
+                date: new Date().toISOString().split("T")[0],
+                sessions: 1,
+                goal_hours: 8,
+                satisfaction: 95,
+                note: "로드 완료 후 테스트 저장",
+                start_time: "09:00",
+                end_time: "18:00",
+              },
+            ]);
 
-  // ✅ Supabase 초기화 함수 (안전 대기 포함)
-  async function initSupabase() {
-    console.log("🧠 Supabase 초기화 중...");
-
-    // Supabase 스크립트 로드 대기 (혹시 로드 안된 경우 대비)
-    if (!window.supabase) {
-      await new Promise((resolve) => {
-        const interval = setInterval(() => {
-          if (window.supabase) {
-            clearInterval(interval);
-            resolve();
+          if (error) {
+            console.error("❌ 오류:", error);
+            alert("❌ 오류 발생: " + error.message);
+          } else {
+            console.log("✅ 저장 성공:", data);
+            alert("✅ Supabase 저장 성공!");
           }
-        }, 300);
+        }
+
+        const App = () => (
+          <div className="p-6 text-center">
+            <h1 className="text-2xl font-bold mb-4">Supabase 연결 테스트</h1>
+            <button
+              onClick={handleSave}
+              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+            >
+              저장 테스트
+            </button>
+          </div>
+        );
+
+        ReactDOM.render(<App />, document.getElementById("root"));
       });
-    }
-
-    // 환경 변수 검증
-    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-      console.warn("⚠️ Supabase 설정이 비어 있습니다. 로컬 저장소만 사용합니다.");
-      return null;
-    }
-
-    // UMD 환경에 맞게 처리 (default 포함)
-    const lib = window.supabase.default || window.supabase;
-
-    if (!lib || typeof lib.createClient !== "function") {
-      console.error("🚨 Supabase 라이브러리 로드 실패 (createClient 없음):", lib);
-      return null;
-    }
-
-    const client = lib.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    console.log("✅ Supabase 연결 완료:", client);
-    return client;
-  }
-
-  // ✅ 전역 Supabase 클라이언트 생성
-  let supabase = null;
-
-  (async () => {
-    supabase = await initSupabase();
-    if (!supabase) {
-      console.error("❌ Supabase 초기화 실패 — 클라이언트 생성 안됨");
-    }
-  })();
+  
     // =========================================
 
     // Lucide 아이콘 (SVG 그대로 유지)
