@@ -5,18 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>⏱️ 업무 트래커</title>
 
- <!-- ✅ Supabase (맨 위) -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.42.4/dist/umd/supabase.min.js"></script>
+  <!-- React & Babel -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-<!-- React -->
-<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
 
-<!-- Babel -->
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-<!-- Tailwind -->
-<script src="https://cdn.tailwindcss.com"></script>
+  <!-- ✅ Supabase (UMD 완전버전) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.42.4/dist/umd/supabase.min.js"></script>
 
   <style>
     @keyframes bounce {
@@ -38,68 +36,21 @@
 <body>
   <div id="root"></div>
 
- <script type="text/babel">
-console.log("🧠 window.supabase 현재 상태:", window.supabase);
-console.log("🧠 window.supabase.default 상태:", window.supabase?.default);
+  <script type="text/babel">
+    const { useState, useEffect } = React;
 
-const lib = window.supabase?.default || window.supabase;
-if (!lib) {
-  alert("❌ Supabase가 아직 로드되지 않았습니다. 잠시 후 새로고침 해주세요.");
-} else {
-  console.log("✅ Supabase 정상 로드됨:", lib);
-}
+    // ============ Supabase 설정 ============
+    const SUPABASE_URL = 'YOUR_SUPABASE_URL'; // 예: https://xxxxx.supabase.co
+    const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY'; // 예: eyJhbGc...
 
-   const { useState, useEffect } = React;
-
-  // ============ Supabase 설정 ============
-  const SUPABASE_URL = 'https://ypdvepbxhedaywdlavap.supabase.co';
-  const SUPABASE_ANON_KEY =
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwZHZlcGJ4aGVkYXl3ZGxhdmFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNTAyMTYsImV4cCI6MjA3NzkyNjIxNn0.xLrxGb9xsNAzDaozd3m9UjegRkw1Tu6hmTuSj326tWo';
-
-  // ✅ Supabase 초기화 함수 (안전 대기 포함)
-  async function initSupabase() {
-    console.log("🧠 Supabase 초기화 중...");
-
-    // Supabase 스크립트 로드 대기 (혹시 로드 안된 경우 대비)
-    if (!window.supabase) {
-      await new Promise((resolve) => {
-        const interval = setInterval(() => {
-          if (window.supabase) {
-            clearInterval(interval);
-            resolve();
-          }
-        }, 300);
-      });
+    // ✅ UMD 버전에서는 이렇게 초기화해야 정상작동
+    let supabase = null;
+    if (SUPABASE_URL !== 'YOUR_SUPABASE_URL' && SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY') {
+      const { createClient } = window.supabase;
+      supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    } else {
+      console.warn('⚠️ Supabase 설정이 비어 있습니다. 로컬 저장소만 사용합니다.');
     }
-
-    // 환경 변수 검증
-    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-      console.warn("⚠️ Supabase 설정이 비어 있습니다. 로컬 저장소만 사용합니다.");
-      return null;
-    }
-
-    // UMD 환경에 맞게 처리 (default 포함)
-    const lib = window.supabase.default || window.supabase;
-
-    if (!lib || typeof lib.createClient !== "function") {
-      console.error("🚨 Supabase 라이브러리 로드 실패 (createClient 없음):", lib);
-      return null;
-    }
-
-    const client = lib.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    console.log("✅ Supabase 연결 완료:", client);
-    return client;
-  }
-
-  // ✅ 전역 Supabase 클라이언트 생성
-  let supabase = null;
-
-  (async () => {
-    supabase = await initSupabase();
-    if (!supabase) {
-      console.error("❌ Supabase 초기화 실패 — 클라이언트 생성 안됨");
-    }
-  })();
     // =========================================
 
     // Lucide 아이콘 (SVG 그대로 유지)
