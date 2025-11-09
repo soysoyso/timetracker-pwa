@@ -24,63 +24,71 @@
     <div id="root"></div>
 
     <!-- ✅ Supabase가 완전히 로드된 후 실행 -->
-    <script type="text/babel">
-      async function waitForSupabase() {
-        while (!window.supabaseLoaded || !window.supabase) {
-          console.log("⏳ Supabase 로드 대기 중...");
-          await new Promise((r) => setTimeout(r, 300));
-        }
-        console.log("✅ Supabase 로드 완료:", window.supabase);
+  <script type="text/babel">
+  async function waitForSupabase() {
+    while (!window.supabaseLoaded || !window.supabase) {
+      console.log("⏳ Supabase 로드 대기 중...");
+      await new Promise((r) => setTimeout(r, 300));
+    }
+    console.log("✅ Supabase 로드 완료:", window.supabase);
+  }
+
+  waitForSupabase().then(() => {
+    // ✅ React Hook 선언은 여기서!
+    const { useState, useEffect } = React;
+
+    const SUPABASE_URL = "https://ypdvepbxhedaywdlavap.supabase.co";
+    const SUPABASE_ANON_KEY =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwZHZlcGJ4aGVkYXl3ZGxhdmFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNTAyMTYsImV4cCI6MjA3NzkyNjIxNn0.xLrxGb9xsNAzDaozd3m9UjegRkw1Tu6hmTuSj326tWo";
+
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    async function handleSave() {
+      const { data, error } = await supabase.from("work_history").insert([
+        {
+          user_name: "요까이",
+          date: new Date().toISOString().split("T")[0],
+          sessions: 1,
+          goal_hours: 8,
+          satisfaction: 95,
+          note: "로드 완료 후 테스트 저장",
+          start_time: "09:00",
+          end_time: "18:00",
+        },
+      ]);
+
+      if (error) {
+        console.error("❌ 오류:", error);
+        alert("❌ 오류 발생: " + error.message);
+      } else {
+        console.log("✅ 저장 성공:", data);
+        alert("✅ Supabase 저장 성공!");
       }
+    }
 
-      waitForSupabase().then(() => {
-        const { useState, useEffect } = React;
+    const App = () => {
+      const [status, setStatus] = useState("ready");
 
-        const SUPABASE_URL = "https://ypdvepbxhedaywdlavap.supabase.co";
-        const SUPABASE_ANON_KEY =
-          "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwZHZlcGJ4aGVkYXl3ZGxhdmFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNTAyMTYsImV4cCI6MjA3NzkyNjIxNn0.xLrxGb9xsNAzDaozd3m9UjegRkw1Tu6hmTuSj326tWo";
+      useEffect(() => {
+        console.log("✅ Supabase 연결 확인:", supabase);
+      }, []);
 
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      return (
+        <div className="p-6 text-center">
+          <h1 className="text-2xl font-bold mb-4">Supabase 연결 테스트</h1>
+          <button
+            onClick={handleSave}
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+          >
+            저장 테스트
+          </button>
+        </div>
+      );
+    };
 
-        async function handleSave() {
-          const { data, error } = await supabase
-            .from("work_history")
-            .insert([
-              {
-                user_name: "요까이",
-                date: new Date().toISOString().split("T")[0],
-                sessions: 1,
-                goal_hours: 8,
-                satisfaction: 95,
-                note: "로드 완료 후 테스트 저장",
-                start_time: "09:00",
-                end_time: "18:00",
-              },
-            ]);
+    ReactDOM.render(<App />, document.getElementById("root"));
+  });
 
-          if (error) {
-            console.error("❌ 오류:", error);
-            alert("❌ 오류 발생: " + error.message);
-          } else {
-            console.log("✅ 저장 성공:", data);
-            alert("✅ Supabase 저장 성공!");
-          }
-        }
-
-        const App = () => (
-          <div className="p-6 text-center">
-            <h1 className="text-2xl font-bold mb-4">Supabase 연결 테스트</h1>
-            <button
-              onClick={handleSave}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-            >
-              저장 테스트
-            </button>
-          </div>
-        );
-
-        ReactDOM.render(<App />, document.getElementById("root"));
-      });
   
     // =========================================
 
