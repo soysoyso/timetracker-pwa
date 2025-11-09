@@ -3,91 +3,103 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>업무 트래커</title>
+    <title>⏱️ 업무 트래커</title>
 
     <!-- ✅ Supabase 먼저 로드 -->
-    <script
-      src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.42.4/dist/umd/supabase.min.js"
-      onload="window.supabaseLoaded = true;"
-    ></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.42.4/dist/umd/supabase.min.js"></script>
 
-    <!-- React & Babel -->
+    <!-- ✅ React & Babel (순서 중요) -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- Tailwind -->
+    <!-- ✅ Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
   </head>
 
-  <body>
+  <body class="bg-gray-50 text-gray-900">
     <div id="root"></div>
 
-    <!-- ✅ Supabase가 완전히 로드된 후 실행 -->
-  <script type="text/babel">
-  async function waitForSupabase() {
-    while (!window.supabaseLoaded || !window.supabase) {
-      console.log("⏳ Supabase 로드 대기 중...");
-      await new Promise((r) => setTimeout(r, 300));
-    }
-    console.log("✅ Supabase 로드 완료:", window.supabase);
-  }
+    <script type="text/babel">
+      // React Hook을 가장 위에서 바로 꺼내줘야 함
+      const { useState, useEffect } = React;
 
-  waitForSupabase().then(() => {
-    // ✅ React Hook 선언은 여기서!
-    const { useState, useEffect } = React;
+      // ✅ Supabase 초기화
+      const SUPABASE_URL = "https://ypdvepbxhedaywdlavap.supabase.co";
+      const SUPABASE_ANON_KEY =
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwZHZlcGJ4aGVkYXl3ZGxhdmFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNTAyMTYsImV4cCI6MjA3NzkyNjIxNn0.xLrxGb9xsNAzDaozd3m9UjegRkw1Tu6hmTuSj326tWo";
 
-    const SUPABASE_URL = "https://ypdvepbxhedaywdlavap.supabase.co";
-    const SUPABASE_ANON_KEY =
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwZHZlcGJ4aGVkYXl3ZGxhdmFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNTAyMTYsImV4cCI6MjA3NzkyNjIxNn0.xLrxGb9xsNAzDaozd3m9UjegRkw1Tu6hmTuSj326tWo";
-
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-    async function handleSave() {
-      const { data, error } = await supabase.from("work_history").insert([
-        {
-          user_name: "요까이",
-          date: new Date().toISOString().split("T")[0],
-          sessions: 1,
-          goal_hours: 8,
-          satisfaction: 95,
-          note: "로드 완료 후 테스트 저장",
-          start_time: "09:00",
-          end_time: "18:00",
-        },
-      ]);
-
-      if (error) {
-        console.error("❌ 오류:", error);
-        alert("❌ 오류 발생: " + error.message);
-      } else {
-        console.log("✅ 저장 성공:", data);
-        alert("✅ Supabase 저장 성공!");
+      // ✅ Supabase 로드 대기 후 클라이언트 생성
+      async function initSupabase() {
+        while (!window.supabase) {
+          console.log("⏳ Supabase 로드 대기 중...");
+          await new Promise((r) => setTimeout(r, 300));
+        }
+        console.log("✅ Supabase 로드 완료:", window.supabase);
+        return window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
       }
-    }
 
-    const App = () => {
-      const [status, setStatus] = useState("ready");
+      const App = () => {
+        const [status, setStatus] = useState("init");
+        const [supabaseClient, setClient] = useState(null);
 
-      useEffect(() => {
-        console.log("✅ Supabase 연결 확인:", supabase);
-      }, []);
+        // Supabase 초기화
+        useEffect(() => {
+          (async () => {
+            const client = await initSupabase();
+            setClient(client);
+            setStatus("ready");
+          })();
+        }, []);
 
-      return (
-        <div className="p-6 text-center">
-          <h1 className="text-2xl font-bold mb-4">Supabase 연결 테스트</h1>
-          <button
-            onClick={handleSave}
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-          >
-            저장 테스트
-          </button>
-        </div>
-      );
-    };
+        // 데이터 저장 함수
+        const handleSave = async () => {
+          if (!supabaseClient) {
+            alert("Supabase 초기화 중입니다. 잠시 후 다시 시도해주세요.");
+            return;
+          }
 
-    ReactDOM.render(<App />, document.getElementById("root"));
-  });
+          const { data, error } = await supabaseClient.from("work_history").insert([
+            {
+              user_name: "요까이",
+              date: new Date().toISOString().split("T")[0],
+              sessions: 1,
+              goal_hours: 8,
+              satisfaction: 95,
+              note: "오늘도 완주!",
+              start_time: "09:00",
+              end_time: "18:00",
+            },
+          ]);
+
+          if (error) {
+            console.error("❌ 오류 발생:", error);
+            alert("❌ Supabase 저장 실패: " + error.message);
+          } else {
+            console.log("✅ 저장 성공:", data);
+            alert("✅ Supabase에 저장되었습니다!");
+          }
+        };
+
+        return (
+          <div className="flex flex-col items-center justify-center h-screen text-center">
+            <h1 className="text-3xl font-bold mb-4">⏱️ 업무 트래커</h1>
+            {status === "init" ? (
+              <p className="text-gray-500 animate-pulse">Supabase 연결 중...</p>
+            ) : (
+              <button
+                onClick={handleSave}
+                className="px-6 py-3 bg-indigo-600 text-white rounded-lg shadow hover:bg-indigo-700 transition"
+              >
+                저장 테스트
+              </button>
+            )}
+          </div>
+        );
+      };
+
+      ReactDOM.render(<App />, document.getElementById("root"));
+    
 
   
     // =========================================
