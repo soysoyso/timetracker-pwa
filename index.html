@@ -20,87 +20,85 @@
   <body class="bg-gray-50 text-gray-900">
     <div id="root"></div>
 
-    <script type="text/babel">
-      // React Hook을 가장 위에서 바로 꺼내줘야 함
-      const { useState, useEffect } = React;
+  <script type="text/babel">
+  window.addEventListener("load", async () => {
+    console.log("🧠 페이지 로드 완료, Supabase 초기화 시작");
 
-      // ✅ Supabase 초기화
-      const SUPABASE_URL = "https://ypdvepbxhedaywdlavap.supabase.co";
-      const SUPABASE_ANON_KEY =
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwZHZlcGJ4aGVkYXl3ZGxhdmFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNTAyMTYsImV4cCI6MjA3NzkyNjIxNn0.xLrxGb9xsNAzDaozd3m9UjegRkw1Tu6hmTuSj326tWo";
+    const { useState, useEffect } = React;
 
-      // ✅ Supabase 로드 대기 후 클라이언트 생성
-      async function initSupabase() {
-        while (!window.supabase) {
-          console.log("⏳ Supabase 로드 대기 중...");
-          await new Promise((r) => setTimeout(r, 300));
-        }
-        console.log("✅ Supabase 로드 완료:", window.supabase);
-        return window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const SUPABASE_URL = "https://ypdvepbxhedaywdlavap.supabase.co";
+    const SUPABASE_ANON_KEY =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwZHZlcGJ4aGVkYXl3ZGxhdmFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNTAyMTYsImV4cCI6MjA3NzkyNjIxNn0.xLrxGb9xsNAzDaozd3m9UjegRkw1Tu6hmTuSj326tWo";
+
+    // Supabase가 로드될 때까지 기다림
+    async function waitForSupabase() {
+      while (!window.supabase) {
+        console.log("⏳ Supabase 로드 대기 중...");
+        await new Promise((r) => setTimeout(r, 200));
       }
+      console.log("✅ Supabase 로드 완료!");
+      return window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    }
 
-      const App = () => {
-        const [status, setStatus] = useState("init");
-        const [supabaseClient, setClient] = useState(null);
+    const App = () => {
+      const [status, setStatus] = useState("init");
+      const [supabaseClient, setClient] = useState(null);
 
-        // Supabase 초기화
-        useEffect(() => {
-          (async () => {
-            const client = await initSupabase();
-            setClient(client);
-            setStatus("ready");
-          })();
-        }, []);
+      useEffect(() => {
+        (async () => {
+          const client = await waitForSupabase();
+          setClient(client);
+          setStatus("ready");
+        })();
+      }, []);
 
-        // 데이터 저장 함수
-        const handleSave = async () => {
-          if (!supabaseClient) {
-            alert("Supabase 초기화 중입니다. 잠시 후 다시 시도해주세요.");
-            return;
-          }
+      const handleSave = async () => {
+        if (!supabaseClient) {
+          alert("Supabase 초기화 중입니다. 잠시 후 다시 시도해주세요.");
+          return;
+        }
 
-          const { data, error } = await supabaseClient.from("work_history").insert([
-            {
-              user_name: "요까이",
-              date: new Date().toISOString().split("T")[0],
-              sessions: 1,
-              goal_hours: 8,
-              satisfaction: 95,
-              note: "오늘도 완주!",
-              start_time: "09:00",
-              end_time: "18:00",
-            },
-          ]);
+        const { data, error } = await supabaseClient.from("work_history").insert([
+          {
+            user_name: "요까이",
+            date: new Date().toISOString().split("T")[0],
+            sessions: 1,
+            goal_hours: 8,
+            satisfaction: 95,
+            note: "오늘도 완주!",
+            start_time: "09:00",
+            end_time: "18:00",
+          },
+        ]);
 
-          if (error) {
-            console.error("❌ 오류 발생:", error);
-            alert("❌ Supabase 저장 실패: " + error.message);
-          } else {
-            console.log("✅ 저장 성공:", data);
-            alert("✅ Supabase에 저장되었습니다!");
-          }
-        };
-
-        return (
-          <div className="flex flex-col items-center justify-center h-screen text-center">
-            <h1 className="text-3xl font-bold mb-4">⏱️ 업무 트래커</h1>
-            {status === "init" ? (
-              <p className="text-gray-500 animate-pulse">Supabase 연결 중...</p>
-            ) : (
-              <button
-                onClick={handleSave}
-                className="px-6 py-3 bg-indigo-600 text-white rounded-lg shadow hover:bg-indigo-700 transition"
-              >
-                저장 테스트
-              </button>
-            )}
-          </div>
-        );
+        if (error) {
+          console.error("❌ 오류 발생:", error);
+          alert("❌ Supabase 저장 실패: " + error.message);
+        } else {
+          console.log("✅ 저장 성공:", data);
+          alert("✅ Supabase에 저장되었습니다!");
+        }
       };
 
-      ReactDOM.render(<App />, document.getElementById("root"));
-    
+      return (
+        <div className="flex flex-col items-center justify-center h-screen text-center">
+          <h1 className="text-3xl font-bold mb-4">⏱️ 업무 트래커</h1>
+          {status === "init" ? (
+            <p className="text-gray-500 animate-pulse">Supabase 연결 중...</p>
+          ) : (
+            <button
+              onClick={handleSave}
+              className="px-6 py-3 bg-indigo-600 text-white rounded-lg shadow hover:bg-indigo-700 transition"
+            >
+              저장 테스트
+            </button>
+          )}
+        </div>
+      );
+    };
 
+    ReactDOM.render(<App />, document.getElementById("root"));
+  });
   
     // =========================================
 
