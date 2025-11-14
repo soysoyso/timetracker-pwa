@@ -4,6 +4,20 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>⏱️ 업무 트래커</title>
+<!-- Manifest 연결 -->
+<link rel="manifest" href="/timetracker-pwa/manifest.json">
+
+<!-- 테마 색상 -->
+<meta name="theme-color" content="#4f46e5">
+
+<!-- iOS용 설정 -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="업무 트래커">
+<link rel="apple-touch-icon" href="/timetracker-pwa/icons/192192.jpg">
+
+<!-- 아이콘 -->
+<link rel="icon" type="image/jpeg" href="/timetracker-pwa/icons/192192.jpg">
 
     <!-- ✅ Supabase 먼저 로드 -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.42.4/dist/umd/supabase.min.js"></script>
@@ -15,91 +29,60 @@
 
     <!-- ✅ Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            animation: {
+              'bounce-slow': 'bounce 2s infinite',
+              'wiggle': 'wiggle 1s ease-in-out infinite',
+              'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              'float': 'float 3s ease-in-out infinite',
+              'shake': 'shake 0.5s ease-in-out infinite',
+              'breathe': 'breathe 2s ease-in-out infinite',
+            },
+            keyframes: {
+              wiggle: {
+                '0%, 100%': { transform: 'rotate(-3deg)' },
+                '50%': { transform: 'rotate(3deg)' },
+              },
+              float: {
+                '0%, 100%': { transform: 'translateY(0px)' },
+                '50%': { transform: 'translateY(-10px)' },
+              },
+              shake: {
+                '0%, 100%': { transform: 'translateX(0)' },
+                '25%': { transform: 'translateX(-5px)' },
+                '75%': { transform: 'translateX(5px)' },
+              },
+              breathe: {
+                '0%, 100%': { transform: 'scale(1)' },
+                '50%': { transform: 'scale(1.05)' },
+              }
+            }
+          }
+        }
+      }
+    </script>
   </head>
 
   <body class="bg-gray-50 text-gray-900">
     <div id="root"></div>
 
   <script type="text/babel">
-  window.addEventListener("load", async () => {
-    console.log("🧠 페이지 로드 완료, Supabase 초기화 시작");
-
     const { useState, useEffect } = React;
 
-    const SUPABASE_URL = "https://ypdvepbxhedaywdlavap.supabase.co";
-    const SUPABASE_ANON_KEY =
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwZHZlcGJ4aGVkYXl3ZGxhdmFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNTAyMTYsImV4cCI6MjA3NzkyNjIxNn0.xLrxGb9xsNAzDaozd3m9UjegRkw1Tu6hmTuSj326tWo";
-
-    // Supabase가 로드될 때까지 기다림
-    async function waitForSupabase() {
-      while (!window.supabase) {
-        console.log("⏳ Supabase 로드 대기 중...");
-        await new Promise((r) => setTimeout(r, 200));
+    // Supabase 초기화 (비동기)
+    let supabase = null;
+    (async () => {
+      if (window.supabase) {
+        const SUPABASE_URL = "https://ypdvepbxhedaywdlavap.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwZHZlcGJ4aGVkYXl3ZGxhdmFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNTAyMTYsImV4cCI6MjA3NzkyNjIxNn0.xLrxGb9xsNAzDaozd3m9UjegRkw1Tu6hmTuSj326tWo";
+        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        console.log("✅ Supabase 초기화 완료");
       }
-      console.log("✅ Supabase 로드 완료!");
-      return window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    }
-
-    const App = () => {
-      const [status, setStatus] = useState("init");
-      const [supabaseClient, setClient] = useState(null);
-
-      useEffect(() => {
-        (async () => {
-          const client = await waitForSupabase();
-          setClient(client);
-          setStatus("ready");
-        })();
-      }, []);
-
-      const handleSave = async () => {
-        if (!supabaseClient) {
-          alert("Supabase 초기화 중입니다. 잠시 후 다시 시도해주세요.");
-          return;
-        }
-
-        const { data, error } = await supabaseClient.from("work_history").insert([
-          {
-            user_name: "요까이",
-            date: new Date().toISOString().split("T")[0],
-            sessions: 1,
-            goal_hours: 8,
-            satisfaction: 95,
-            note: "오늘도 완주!",
-            start_time: "09:00",
-            end_time: "18:00",
-          },
-        ]);
-
-        if (error) {
-          console.error("❌ 오류 발생:", error);
-          alert("❌ Supabase 저장 실패: " + error.message);
-        } else {
-          console.log("✅ 저장 성공:", data);
-          alert("✅ Supabase에 저장되었습니다!");
-        }
-      };
-
-      return (
-        <div className="flex flex-col items-center justify-center h-screen text-center">
-          <h1 className="text-3xl font-bold mb-4">⏱️ 업무 트래커</h1>
-          {status === "init" ? (
-            <p className="text-gray-500 animate-pulse">Supabase 연결 중...</p>
-          ) : (
-            <button
-              onClick={handleSave}
-              className="px-6 py-3 bg-indigo-600 text-white rounded-lg shadow hover:bg-indigo-700 transition"
-            >
-              저장 테스트
-            </button>
-          )}
-        </div>
-      );
-    };
-
-    ReactDOM.render(<App />, document.getElementById("root"));
-  });
-  
+    })();
+    
     // =========================================
 
     // Lucide 아이콘 (SVG 그대로 유지)
@@ -149,8 +132,194 @@
       </svg>
     );
 
+    // 🆕 캐릭터 상태 표시 컴포넌트
+    const CharacterStatus = ({ totalWorkTime, totalRestTime, isWorking }) => {
+      const getWorkState = (minutes) => {
+        if (minutes < 30) return {
+          emoji: '😊',
+          color: 'from-green-400 to-green-500',
+          status: '활력 충만',
+          message: '최상의 컨디션이에요! ✨',
+          glow: 'shadow-green-300 shadow-2xl',
+          energy: 100,
+          animation: 'animate-float',
+          particles: ['✨', '💫', '⭐'],
+          bgEffect: 'bg-gradient-to-br from-green-50 to-blue-50'
+        };
+        if (minutes < 60) return {
+          emoji: '😐',
+          color: 'from-yellow-400 to-yellow-500',
+          status: '약간 피곤',
+          message: '조금 쉬면 좋겠어요 💧',
+          glow: 'shadow-yellow-300',
+          energy: 75,
+          animation: 'animate-wiggle',
+          particles: ['💧'],
+          bgEffect: 'bg-gradient-to-br from-yellow-50 to-orange-50'
+        };
+        if (minutes < 120) return {
+          emoji: '😓',
+          color: 'from-orange-400 to-orange-500',
+          status: '많이 피곤',
+          message: '휴식이 필요해요! 💦',
+          glow: 'shadow-orange-300',
+          energy: 50,
+          animation: 'animate-breathe',
+          particles: ['💦', '💦'],
+          bgEffect: 'bg-gradient-to-br from-orange-50 to-red-50'
+        };
+        return {
+          emoji: '🥵',
+          color: 'from-red-400 to-red-500',
+          status: '탈진 위험',
+          message: '당장 쉬어야 해요! 🚨',
+          glow: 'shadow-red-300 shadow-2xl',
+          energy: 25,
+          animation: 'animate-shake',
+          particles: ['🌡️', '💢', '⚠️'],
+          bgEffect: 'bg-gradient-to-br from-red-50 to-pink-50 animate-pulse-fast'
+        };
+      };
+
+      const getRestState = (minutes) => {
+        if (minutes < 30) return {
+          emoji: '☕',
+          color: 'from-blue-400 to-blue-500',
+          status: '회복 중',
+          message: '충전 중이에요 ⚡',
+          glow: 'shadow-blue-300',
+          energy: 100,
+          animation: 'animate-breathe',
+          particles: ['💚', '⚡'],
+          bgEffect: 'bg-gradient-to-br from-blue-50 to-green-50'
+        };
+        if (minutes < 60) return {
+          emoji: '😊',
+          color: 'from-green-400 to-green-500',
+          status: '충분한 휴식',
+          message: '완전히 회복했어요! ✨',
+          glow: 'shadow-green-300 shadow-xl',
+          energy: 100,
+          animation: 'animate-float',
+          particles: ['✨', '💚'],
+          bgEffect: 'bg-gradient-to-br from-green-50 to-emerald-50'
+        };
+        if (minutes < 120) return {
+          emoji: '😑',
+          color: 'from-gray-400 to-gray-500',
+          status: '약간 지루',
+          message: '슬슬 움직일 시간이에요',
+          glow: 'shadow-gray-300',
+          energy: 75,
+          animation: 'animate-wiggle',
+          particles: ['💤'],
+          bgEffect: 'bg-gradient-to-br from-gray-50 to-slate-50'
+        };
+        return {
+          emoji: '😠',
+          color: 'from-purple-400 to-purple-500',
+          status: '많이 지루',
+          message: '일을 시작하고 싶어요! 💪',
+          glow: 'shadow-purple-300',
+          energy: 50,
+          animation: 'animate-shake',
+          particles: ['💢', '😤'],
+          bgEffect: 'bg-gradient-to-br from-purple-50 to-pink-50'
+        };
+      };
+
+      const state = isWorking 
+        ? getWorkState(totalWorkTime) 
+        : getRestState(totalRestTime);
+      
+      const formatTime = (minutes) => {
+        const hours = Math.floor(minutes / 60);
+        const mins = Math.floor(minutes % 60);
+        if (hours > 0) {
+          return `${hours}시간 ${mins}분`;
+        }
+        return `${mins}분`;
+      };
+
+      return (
+        <div className={`rounded-3xl p-6 shadow-lg mb-6 transition-all duration-500 ${state.bgEffect}`}>
+          <div className="text-center">
+            <div className="text-sm font-medium text-gray-500 mb-2">
+              {isWorking ? '업무 캐릭터' : '휴식 캐릭터'}
+            </div>
+            
+            {/* 캐릭터 영역 */}
+            <div className="relative inline-block mb-4">
+              {/* 캐릭터 이모지 */}
+              <div className={`text-8xl transition-all duration-500 ${state.glow} ${state.animation} inline-block rounded-full p-4 relative z-10`}>
+                {state.emoji}
+              </div>
+              
+              {/* 파티클 효과 */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                {state.particles.map((particle, i) => (
+                  <div
+                    key={i}
+                    className="absolute text-2xl animate-float opacity-70"
+                    style={{
+                      animationDelay: `${i * 0.3}s`,
+                      left: `${20 + i * 30}%`,
+                      top: `${10 + i * 20}%`
+                    }}
+                  >
+                    {particle}
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            {/* 에너지 바 */}
+            <div className="mb-4 bg-white rounded-2xl p-4 shadow-inner">
+              <div className="flex justify-between text-sm mb-2">
+                <span className="font-medium text-gray-700">{state.status}</span>
+                <span className="font-bold text-gray-900">{state.energy}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-6 overflow-hidden relative">
+                {/* 배경 반짝임 효과 */}
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-20 animate-pulse"></div>
+                
+                {/* 실제 에너지 바 */}
+                <div
+                  className={`h-6 rounded-full bg-gradient-to-r ${state.color} transition-all duration-1000 ease-out flex items-center justify-end pr-2 relative overflow-hidden`}
+                  style={{ width: `${state.energy}%` }}
+                >
+                  {/* 에너지 바 내부 반짝임 */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-30 animate-pulse" 
+                       style={{ animationDuration: '2s' }}></div>
+                  <span className="text-white text-xs font-bold relative z-10">⚡</span>
+                </div>
+              </div>
+            </div>
+            
+            {/* 상태 메시지 */}
+            <div className={`text-sm font-medium p-4 rounded-xl bg-white shadow-sm border-2 transition-all duration-500`}
+                 style={{ borderColor: state.color.includes('green') ? '#10b981' : 
+                                       state.color.includes('yellow') ? '#f59e0b' :
+                                       state.color.includes('orange') ? '#f97316' :
+                                       state.color.includes('red') ? '#ef4444' :
+                                       state.color.includes('blue') ? '#3b82f6' :
+                                       state.color.includes('purple') ? '#a855f7' : '#9ca3af' }}>
+              {state.message}
+            </div>
+
+            {/* 누적 시간 표시 */}
+            <div className="mt-4 text-xs text-gray-600 bg-white rounded-full px-4 py-2 inline-block shadow-sm">
+              {isWorking 
+                ? `⏱️ 누적 업무: ${formatTime(totalWorkTime)}`
+                : `☕ 누적 휴식: ${formatTime(totalRestTime)}`
+              }
+            </div>
+          </div>
+        </div>
+      );
+    };
+
     const WorkTracker = () => {
-      // ============ 새로 추가된 사용자 이름 관련 State ============
       const [userName, setUserName] = useState('');
       const [showUserNameInput, setShowUserNameInput] = useState(false);
       const [inputUserName, setInputUserName] = useState('');
@@ -180,20 +349,15 @@
         break: false
       });
       
-      // ============ 카테고리에 '직접입력' 추가 ============
       const categories = ['기획', '회의', '피그마작업', '직접입력'];
       const [selectedCategory, setSelectedCategory] = useState('');
       const [workDescription, setWorkDescription] = useState('');
       const [showStartForm, setShowStartForm] = useState(false);
       const [customCategory, setCustomCategory] = useState('');
 
-      // ============ Supabase 관련 State ============
       const [isSyncing, setIsSyncing] = useState(false);
-      const [syncStatus, setSyncStatus] = useState(''); // 동기화 상태 메시지
+      const [syncStatus, setSyncStatus] = useState('');
 
-      // ============ Supabase 함수들 ============
-      
-      // 서버에 데이터 저장
       const saveDayToSupabase = async (dayData) => {
         if (!supabase) {
           console.log('Supabase가 설정되지 않았습니다. localStorage만 사용합니다.');
@@ -224,7 +388,6 @@
         }
       };
 
-      // 서버에서 데이터 동기화
       const syncFromSupabase = async () => {
         if (!supabase || !userName) return;
 
@@ -237,17 +400,14 @@
             .select('*')
             .order('created_at', { ascending: true });
 
-          // 일반 사용자는 자기 데이터만
           if (!isAdmin) {
             query = query.eq('user_name', userName);
           }
-          // 관리자는 모든 데이터 조회
 
           const { data, error } = await query;
 
           if (error) throw error;
 
-          // 서버 데이터를 앱 형식으로 변환
           const serverHistory = data.map(row => ({
             userName: row.user_name,
             date: row.date,
@@ -259,10 +419,8 @@
             endTime: row.end_time
           }));
 
-          // localStorage와 병합 (서버 우선)
           const localHistory = JSON.parse(localStorage.getItem('workTrackerHistory') || '[]');
           
-          // 중복 제거 (같은 날짜+사용자)
           const mergedHistory = [...serverHistory];
           localHistory.forEach(local => {
             const exists = serverHistory.some(
@@ -287,14 +445,12 @@
         }
       };
 
-      // ============ 사용자 이름 로드 시 동기화 ============
       useEffect(() => {
         if (userName && supabase) {
           syncFromSupabase();
         }
       }, [userName, isAdmin]);
 
-      // ============ 사용자 이름 로드 및 체크 ============
       useEffect(() => {
         const savedUserName = localStorage.getItem('workTrackerUserName');
         if (savedUserName) {
@@ -340,7 +496,6 @@
         return () => clearInterval(timer);
       }, []);
 
-      // ============ 사용자 이름 저장 함수 ============
       const saveUserName = () => {
         if (!inputUserName.trim()) {
           alert('사용자 이름을 입력해주세요');
@@ -525,11 +680,9 @@
           endTime: endTime
         };
         
-        // localStorage에 저장
         const newHistory = [...workHistory, dayData];
         setWorkHistory(newHistory);
         
-        // Supabase에 저장 (비동기)
         if (supabase) {
           setSyncStatus('서버에 저장 중...');
           const result = await saveDayToSupabase(dayData);
@@ -577,10 +730,41 @@
         if (isAdmin) {
           return workHistory;
         }
-        // userName이 없는 기존 데이터는 현재 사용자 것으로 간주
         return workHistory.filter(day => 
           !day.userName || day.userName === userName
         );
+      };
+
+      // 🆕 누적 작업 시간 계산 (분 단위)
+      const calculateTotalWorkTime = () => {
+        const workOnlySessions = workSessions.filter(s => s.category !== '시작' && s.category !== '마감');
+        const totalPastWork = workOnlySessions.reduce((acc, s) => acc + s.duration, 0);
+        
+        // 현재 작업 중이면 현재 시간까지 포함
+        if (currentWork) {
+          const currentDuration = Date.now() - currentWork.startTime;
+          return (totalPastWork + currentDuration) / (1000 * 60); // 분으로 변환
+        }
+        
+        return totalPastWork / (1000 * 60);
+      };
+
+      // 🆕 누적 휴식 시간 계산 (분 단위)
+      const calculateTotalRestTime = () => {
+        // 현재 작업 중이면 휴식 시간 0
+        if (currentWork) return 0;
+        
+        // 마지막 작업 종료 시간이 있으면 그것 기준
+        if (lastWorkEnd) {
+          return (Date.now() - lastWorkEnd) / (1000 * 60);
+        }
+        
+        // 작업 한 적 없으면 하루 시작 시간 기준
+        if (dayStartTime) {
+          return (Date.now() - dayStartTime) / (1000 * 60);
+        }
+        
+        return 0;
       };
 
       const calculateStats = () => {
@@ -910,7 +1094,6 @@
                       </span>
                     )}
                   </p>
-                  {/* 동기화 상태 표시 */}
                   {syncStatus && (
                     <div className="mt-2 text-sm text-indigo-600 font-medium">
                       {syncStatus}
@@ -1021,6 +1204,15 @@
                   </div>
                 ) : (
                   <>
+                    {/* 🆕 캐릭터 상태 표시 */}
+                    {/* 🆕 캐릭터 상태 표시 */}
+                    <CharacterStatus 
+                      totalWorkTime={calculateTotalWorkTime()}
+                      totalRestTime={calculateTotalRestTime()}
+                      isWorking={!!currentWork}
+                      key={currentTime.getTime()}
+                    />
+
                     <div className="bg-white rounded-3xl p-6 shadow-lg mb-6">
                       {currentWork ? (
                         <div className="text-center">
@@ -1468,5 +1660,34 @@
     const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(<WorkTracker />);
   </script>
+<!-- 🔧 Service Worker 등록 (</body> 직전에 추가) -->
+<script>
+  // Service Worker 등록
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker
+        .register('/timetracker-pwa/service-worker.js')
+        .then((registration) => {
+          console.log('✅ Service Worker 등록 완료:', registration.scope);
+          
+          // 업데이트 확인
+          registration.addEventListener('updatefound', () => {
+            const newWorker = registration.installing;
+            newWorker.addEventListener('statechange', () => {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                console.log('🔄 새 버전 발견! 페이지를 새로고침하세요.');
+              }
+            });
+          });
+        })
+        .catch((error) => {
+          console.error('❌ Service Worker 등록 실패:', error);
+        });
+    });
+  } else {
+    console.warn('⚠️ 이 브라우저는 Service Worker를 지원하지 않습니다.');
+  }
+</script>
+
 </body>
 </html>
